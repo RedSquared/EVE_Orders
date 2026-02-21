@@ -129,6 +129,11 @@
     .stat-value.green  { color: var(--green); }
     .stat-value.blue   { color: var(--blue); }
     .stat-value.purple { color: var(--purple); }
+    .stat-value.red    { color: var(--red); }
+    .slot-bar { margin-top: 8px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .slot-fill { height: 100%; border-radius: 2px; background: var(--green); transition: width .3s; }
+    .slot-fill.warn { background: var(--orange); }
+    .slot-fill.crit { background: var(--red); }
 
     /* ── Station breakdown ── */
     .section {
@@ -293,8 +298,9 @@
       <div class="setup-note">
         <strong>First-time setup:</strong> You need a free EVE developer application.<br>
         Register at <code>developers.eveonline.com</code> → Create New Application<br>
-        Add scopes: <code>esi-markets.read_character_orders.v1</code> and
-        <code>esi-markets.read_corporation_orders.v1</code><br>
+        Add scopes: <code>esi-markets.read_character_orders.v1</code>,
+        <code>esi-markets.read_corporation_orders.v1</code>, and
+        <code>esi-skills.read_skills.v1</code><br>
         Set the <strong>Callback URL</strong> to exactly:<br>
         <code id="callback-url-display"></code>
       </div>
@@ -389,6 +395,7 @@ const ESI_BASE     = 'https://esi.evetech.net/latest';
 const SCOPES       = [
   'esi-markets.read_character_orders.v1',
   'esi-markets.read_corporation_orders.v1',
+  'esi-skills.read_skills.v1',
 ].join(' ');
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 
@@ -415,6 +422,8 @@ let activeSrcFilt  = 'all';   // all | personal | corp
 let sortCol        = 'expiry';
 let sortDir        = 1;
 let sectionVisible = true;
+let charSlotsUsed  = 0;        // orders placed by this character (personal + corp they placed)
+let charSlotsMax   = 0;        // calculated from trade skills (0 = scope not granted)
 
 // =============================================================
 // PKCE helpers
@@ -601,12 +610,30 @@ async function loadOrders() {
   try {
     const charId = localStorage.getItem(K.cid);
 
-    // ── Character personal orders ──────────────────────────────
+    // ── Character personal orders + slot tracking ──────────────
     const charOrdersRaw = await esiGet(`/characters/${charId}/orders/`);
+    // All char orders (personal + corp ones they placed) consume their order slots
+    charSlotsUsed = charOrdersRaw.length;
     // Keep only orders placed for the character personally (not via corp role)
     const personalOrders = charOrdersRaw
       .filter(o => !o.is_corporation)
       .map(o => ({ ...o, _src: 'personal', is_buy_order: o.is_buy_order || false }));
+
+    // ── Character skills → order slot capacity ─────────────────
+    // Trade:3443 +4/lvl  Retail:3444 +8/lvl  Wholesale:3445 +16/lvl  Tycoon:3446 +32/lvl
+    charSlotsMax = 0;
+    try {
+      const skillData = await esiGet(`/characters/${charId}/skills/`);
+      const sm = {};
+      skillData.skills.forEach(s => { sm[s.skill_id] = s.active_skill_level; });
+      charSlotsMax = 5
+        + (sm[3443] || 0) *  4   // Trade
+        + (sm[3444] || 0) *  8   // Retail
+        + (sm[3445] || 0) * 16   // Wholesale
+        + (sm[3446] || 0) * 32;  // Tycoon
+    } catch (e) {
+      console.warn('Could not fetch skills (scope missing?):', e.message);
+    }
 
     // ── Corporation orders ─────────────────────────────────────
     let corpOrders = [];
@@ -658,22 +685,46 @@ async function loadOrders() {
 // Render: stats bar
 // =============================================================
 function renderStats() {
-  const sell    = allOrders.filter(o => !o.is_buy_order);
-  const buy     = allOrders.filter(o =>  o.is_buy_order);
-  const corp    = allOrders.filter(o =>  o._src === 'corp');
-  const personal = allOrders.filter(o => o._src === 'personal');
+  // Use corp orders for the "valuable" stats (user runs a one-man trading corp)
+  const corpOrds   = allOrders.filter(o => o._src === 'corp');
+  const personalOrds = allOrders.filter(o => o._src === 'personal');
+  const corpSell   = corpOrds.filter(o => !o.is_buy_order);
+  const corpBuy    = corpOrds.filter(o =>  o.is_buy_order);
+  const allSell    = allOrders.filter(o => !o.is_buy_order);
+  const allBuy     = allOrders.filter(o =>  o.is_buy_order);
 
-  const sellVal = sell.reduce((s, o) => s + o.price * o.volume_remain, 0);
-  const buyVal  = buy.reduce( (s, o) => s + o.price * o.volume_remain, 0);
+  const sellVal = allSell.reduce((s, o) => s + o.price * o.volume_remain, 0);
+  const buyVal  = allBuy.reduce( (s, o) => s + o.price * o.volume_remain, 0);
 
-  // Most valuable item by aggregated sell value
+  // Most valuable item — corp sell orders, grouped by type, highest aggregate total
   const byItem = {};
-  sell.forEach(o => {
+  corpSell.forEach(o => {
     byItem[o.type_id] = (byItem[o.type_id] || 0) + o.price * o.volume_remain;
   });
-  const topEntry   = Object.entries(byItem).sort((a, b) => b[1] - a[1])[0];
-  const topName    = topEntry ? (typeNames[topEntry[0]] || `Type ${topEntry[0]}`) : '—';
-  const topVal     = topEntry ? topEntry[1] : 0;
+  const topItemEntry = Object.entries(byItem).sort((a, b) => b[1] - a[1])[0];
+  const topItemName  = topItemEntry ? (typeNames[topItemEntry[0]] || `Type ${topItemEntry[0]}`) : '—';
+  const topItemVal   = topItemEntry ? topItemEntry[1] : 0;
+
+  // Most valuable single order — corp orders, highest order total
+  const topOrder     = corpOrds.reduce((best, o) => {
+    return (o.price * o.volume_remain) > (best ? best.price * best.volume_remain : 0) ? o : best;
+  }, null);
+  const topOrderName = topOrder ? (typeNames[topOrder.type_id] || `Type ${topOrder.type_id}`) : '—';
+  const topOrderVal  = topOrder ? topOrder.price * topOrder.volume_remain : 0;
+  const topOrderSub  = topOrder
+    ? `${fmtNum(topOrder.volume_remain)} × ${fmtISK(topOrder.price)}`
+    : '';
+
+  // Order slots
+  const slotsRemain = charSlotsMax > 0 ? charSlotsMax - charSlotsUsed : null;
+  const slotsPct    = charSlotsMax > 0 ? Math.min(100, Math.round((charSlotsUsed / charSlotsMax) * 100)) : 0;
+  const slotFill    = slotsPct >= 90 ? 'crit' : slotsPct >= 70 ? 'warn' : '';
+  const slotsHtml   = charSlotsMax > 0
+    ? `<div class="stat-value ${slotsRemain <= 5 ? 'red' : slotsRemain <= 20 ? 'gold' : 'green'}">${charSlotsUsed} <span style="font-size:14px;font-weight:400;color:var(--text2)">/ ${charSlotsMax}</span></div>
+       <div class="stat-sub">${slotsRemain} slots remaining</div>
+       <div class="slot-bar"><div class="slot-fill ${slotFill}" style="width:${slotsPct}%"></div></div>`
+    : `<div class="stat-value" style="font-size:15px;color:var(--text2)">${charSlotsUsed} used</div>
+       <div class="stat-sub" style="color:var(--orange)">Add esi-skills scope to see max</div>`;
 
   const warnHtml = corpOrdersWarning
     ? `<div class="stat-card" style="border-left:3px solid var(--orange);flex-basis:100%">
@@ -684,17 +735,13 @@ function renderStats() {
 
   document.getElementById('stats-bar').innerHTML = `
     <div class="stat-card">
-      <div class="stat-label">Total Orders</div>
-      <div class="stat-value">${allOrders.length}</div>
-      <div class="stat-sub">${personal.length} personal · ${corp.length} corp</div>
+      <div class="stat-label">Order Slots</div>
+      ${slotsHtml}
     </div>
     <div class="stat-card">
-      <div class="stat-label">Sell Orders</div>
-      <div class="stat-value green">${sell.length}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Buy Orders</div>
-      <div class="stat-value blue">${buy.length}</div>
+      <div class="stat-label">Corp Orders</div>
+      <div class="stat-value">${corpOrds.length}</div>
+      <div class="stat-sub">${corpSell.length} sell · ${corpBuy.length} buy</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Total Sell Value</div>
@@ -705,9 +752,14 @@ function renderStats() {
       <div class="stat-value blue">${fmtISK(buyVal)}</div>
     </div>
     <div class="stat-card stat-wide">
-      <div class="stat-label">Most Valuable Item (sell)</div>
-      <div class="stat-value gold" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(topName)}</div>
-      <div class="stat-sub">${fmtISK(topVal)}</div>
+      <div class="stat-label">Most Valuable Item (corp sell)</div>
+      <div class="stat-value gold" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(topItemName)}</div>
+      <div class="stat-sub">${fmtISK(topItemVal)} total</div>
+    </div>
+    <div class="stat-card stat-wide">
+      <div class="stat-label">Most Valuable Order (corp)</div>
+      <div class="stat-value gold" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(topOrderName)}</div>
+      <div class="stat-sub">${fmtISK(topOrderVal)} · ${topOrderSub}</div>
     </div>
     ${warnHtml}
   `;
