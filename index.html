@@ -232,6 +232,12 @@
     .expiry-ok   { color: var(--text2); }
     .expiry-warn { color: var(--orange); }
     .expiry-crit { color: var(--red); }
+    .copy-cell   { width: 28px; text-align: center; padding: 0 4px; }
+    .copy-btn    { background: transparent; border: 1px solid var(--border); border-radius: 4px;
+                   color: var(--text2); font-size: 14px; cursor: pointer; padding: 1px 5px;
+                   line-height: 1.4; transition: color .15s, border-color .15s; }
+    .copy-btn:hover  { color: var(--gold); border-color: var(--gold); }
+    .copy-btn-ok     { color: var(--green) !important; border-color: var(--green) !important; }
 
     /* ── Undercut status ── */
     .uc-best    { color: var(--green);  font-size: 12px; font-weight: 700; white-space: nowrap; }
@@ -364,6 +370,7 @@
             <th onclick="sortBy('total')" class="r">Order Total <span id="si-total"></span></th>
             <th onclick="sortBy('location')">Location   <span id="si-location"></span></th>
             <th onclick="sortBy('expiry')"> Expires     <span id="si-expiry"></span></th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="orders-body"></tbody>
@@ -420,7 +427,9 @@ let charSlotsUsed  = 0;        // orders placed by this character (personal + co
 let charSlotsMax   = 0;        // calculated from trade skills (0 = scope not granted)
 let activeLocFilt  = null;     // location_id (number) or null for all stations
 let activeUcFilt   = 'all';   // all | best | undercut
-let undercutStatus = {};       // order_id → { status: 'loading'|'best'|'undercut'|'error', diff: 0 }
+let undercutStatus = {};       // order_id → { status: 'loading'|'best'|'undercut'|'error', diff: 0, bestCompetitor: null }
+
+const UNDERCUT_TICKS = 2;     // number of 4-sig-fig ticks to move when undercutting / outbidding
 
 // =============================================================
 // PKCE helpers
@@ -953,6 +962,13 @@ function renderOrders() {
         <td class="r total">${fmtISK(orderTotal)}</td>
         <td class="loc-cell" title="Click to filter to this station" onclick="setLocFilter(${o.location_id})">${escHtml(loc)}</td>
         <td class="${expiryClass}">${expiryText}</td>
+        <td class="copy-cell">${
+          (uc && (uc.status === 'undercut' || uc.status === 'best'))
+            ? `<button id="copy-btn-${o.order_id}" class="copy-btn"
+                 title="Copy suggested price to clipboard"
+                 onclick="copyUndercut(${o.order_id}, ${o.is_buy_order}, ${o.price})">⎘</button>`
+            : ''
+        }</td>
       </tr>
     `;
   }).join('');
@@ -1131,13 +1147,13 @@ async function loadUndercutStatus(orders) {
         if (o.is_buy_order) {
           const bestOther = competitors.buy.length ? Math.max(...competitors.buy) : -Infinity;
           undercutStatus[o.order_id] = bestOther > o.price
-            ? { status: 'undercut', diff: bestOther - o.price }
-            : { status: 'best',     diff: 0 };
+            ? { status: 'undercut', diff: bestOther - o.price, bestCompetitor: bestOther }
+            : { status: 'best',     diff: 0,                   bestCompetitor: null };
         } else {
           const bestOther = competitors.sell.length ? Math.min(...competitors.sell) : Infinity;
           undercutStatus[o.order_id] = bestOther < o.price
-            ? { status: 'undercut', diff: o.price - bestOther }
-            : { status: 'best',     diff: 0 };
+            ? { status: 'undercut', diff: o.price - bestOther, bestCompetitor: bestOther }
+            : { status: 'best',     diff: 0,                   bestCompetitor: null };
         }
       });
     } catch (e) {
@@ -1189,6 +1205,52 @@ function hideLoginError() {
 
 function getClientId() {
   return localStorage.getItem(K.clientId) || HARDCODED_CLIENT_ID;
+}
+
+// EVE uses a 4-significant-figure price model — only the first four digits
+// determine the "tick" size used to undercut/outbid.
+// e.g. 14,750,000 → tick = 10,000  |  2,464 → tick = 1  |  999.5 → tick = 0.1
+function calcUndercutPrice(price, ticks, isBuy) {
+  if (!price || price <= 0 || !isFinite(price)) return null;
+  const magnitude = Math.floor(Math.log10(price));
+  const scale     = Math.pow(10, magnitude - 3);
+  // Divide and floor, adding a tiny epsilon to defeat floating-point underflow
+  // (e.g. 999.5 / 0.1 = 9994.999... → 9994 without epsilon, but should be 9995)
+  const sig4      = Math.floor(price / scale + 1e-9);
+  const adjusted  = isBuy ? sig4 + ticks : sig4 - ticks;
+  // Multiply back and round to 2 dp (EVE's price precision)
+  return Math.round(adjusted * scale * 100) / 100;
+}
+
+function copyUndercut(orderId, isBuy, ourPrice) {
+  const uc  = undercutStatus[orderId];
+  if (!uc || uc.status === 'loading') return;
+
+  const refPrice    = (uc.status === 'undercut' && uc.bestCompetitor != null)
+    ? uc.bestCompetitor
+    : ourPrice;
+  const suggested   = calcUndercutPrice(refPrice, UNDERCUT_TICKS, isBuy);
+  if (suggested === null) return;
+
+  const text = suggested.toFixed(2);
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById(`copy-btn-${orderId}`);
+    if (!btn) return;
+    const orig = btn.textContent;
+    btn.textContent = '✓';
+    btn.classList.add('copy-btn-ok');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copy-btn-ok'); }, 1500);
+  }).catch(() => {
+    // Fallback for environments without clipboard API
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity  = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
 }
 
 function fmtISK(v) {
