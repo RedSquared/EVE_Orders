@@ -645,8 +645,8 @@ async function loadOrders() {
     const personalOrders = charOrdersRaw
       .filter(o => !o.is_corporation)
       .map(o => ({ ...o, _src: 'personal', is_buy_order: o.is_buy_order || false }));
-    // Personal orders are the only ones that count against personal slot cap
-    charSlotsUsed = personalOrders.length;
+    // charSlotsUsed will be finalized after corp orders are fetched (corp orders
+    // placed by this character also consume personal order slots)
 
     // ── Character skills → order slot capacity ─────────────────
     // Trade:3443 +4/lvl  Retail:3444 +8/lvl  Wholesale:3445 +16/lvl  Tycoon:3446 +32/lvl
@@ -689,6 +689,10 @@ async function loadOrders() {
     }
 
     allOrders = [...personalOrders, ...corpOrders];
+
+    // Corp orders issued by this character use their personal order slots too
+    const corpOrdersByChar = corpOrders.filter(o => o.issued_by === +charId);
+    charSlotsUsed = personalOrders.length + corpOrdersByChar.length;
 
     // ── Resolve names ──────────────────────────────────────────
     const typeIds    = [...new Set(allOrders.map(o => o.type_id))];
