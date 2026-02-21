@@ -17,6 +17,7 @@
       --green:   #3dba6e;
       --red:     #d14040;
       --orange:  #e08820;
+      --purple:  #9b6fd4;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -43,49 +44,21 @@
       top: 0;
       z-index: 100;
     }
-
-    .logo {
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      user-select: none;
-    }
+    .logo { font-size: 18px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; user-select: none; }
     .logo .eve    { color: var(--gold); }
     .logo .orders { color: var(--blue); }
-
-    .char-info {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .char-info img {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      border: 2px solid var(--border);
-    }
+    .char-info { display: flex; align-items: center; gap: 10px; }
+    .char-info img { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border); }
     .char-name { font-weight: 600; }
 
     /* ── Buttons ── */
-    button {
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 14px;
-      border-radius: 4px;
-      border: none;
-      transition: all 0.15s;
-    }
-    .btn          { padding: 8px 16px; font-weight: 600; }
-    .btn-primary  { background: var(--gold); color: #000; }
-    .btn-primary:hover  { background: #d4b030; }
+    button { cursor: pointer; font-family: inherit; font-size: 14px; border-radius: 4px; border: none; transition: all 0.15s; }
+    .btn         { padding: 8px 16px; font-weight: 600; }
+    .btn-primary { background: var(--gold); color: #000; }
+    .btn-primary:hover    { background: #d4b030; }
     .btn-primary:disabled { opacity: 0.5; cursor: default; }
-    .btn-secondary {
-      background: transparent;
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-    .btn-secondary:hover { border-color: var(--text2); background: var(--bg3); }
+    .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover    { border-color: var(--text2); background: var(--bg3); }
     .btn-secondary:disabled { opacity: 0.4; cursor: default; }
 
     /* ── Login view ── */
@@ -96,7 +69,6 @@
       min-height: calc(100vh - 52px);
       padding: 40px 16px;
     }
-
     .login-card {
       background: var(--bg2);
       border: 1px solid var(--border);
@@ -105,17 +77,8 @@
       max-width: 460px;
       width: 100%;
     }
-    .login-card h2 {
-      font-size: 22px;
-      color: var(--gold);
-      margin-bottom: 10px;
-    }
-    .login-card > p {
-      color: var(--text2);
-      margin-bottom: 24px;
-      line-height: 1.65;
-    }
-
+    .login-card h2 { font-size: 22px; color: var(--gold); margin-bottom: 10px; }
+    .login-card > p { color: var(--text2); margin-bottom: 24px; line-height: 1.65; }
     .setup-note {
       background: var(--bg3);
       border: 1px solid var(--border);
@@ -128,22 +91,8 @@
       line-height: 1.65;
     }
     .setup-note strong { color: var(--text); }
-    .setup-note code {
-      color: var(--gold);
-      font-family: 'Consolas', monospace;
-      font-size: 12px;
-      word-break: break-all;
-    }
-
-    .field-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--text2);
-      margin-bottom: 6px;
-      font-weight: 600;
-    }
-
+    .setup-note code { color: var(--gold); font-family: 'Consolas', monospace; font-size: 12px; word-break: break-all; }
+    .field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2); margin-bottom: 6px; font-weight: 600; }
     #client-id-input {
       width: 100%;
       padding: 10px 12px;
@@ -157,23 +106,13 @@
       outline: none;
     }
     #client-id-input:focus { border-color: var(--blue); }
-
-    #login-error {
-      color: var(--red);
-      font-size: 13px;
-      margin-bottom: 12px;
-      display: none;
-    }
+    #login-error { color: var(--red); font-size: 13px; margin-bottom: 12px; display: none; }
 
     /* ── Dashboard ── */
-    #dashboard-view { padding: 20px; max-width: 1400px; margin: 0 auto; }
+    #dashboard-view { padding: 20px; max-width: 1500px; margin: 0 auto; }
 
-    .stats-bar {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-    }
+    /* ── Stats bar ── */
+    .stats-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
     .stat-card {
       background: var(--bg2);
       border: 1px solid var(--border);
@@ -182,29 +121,62 @@
       flex: 1;
       min-width: 130px;
     }
-    .stat-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--text2);
-      margin-bottom: 4px;
-    }
+    .stat-card.stat-wide { min-width: 200px; flex: 2; }
+    .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2); margin-bottom: 4px; }
     .stat-value { font-size: 20px; font-weight: 700; }
+    .stat-sub   { font-size: 12px; color: var(--text2); margin-top: 2px; }
     .stat-value.gold   { color: var(--gold); }
     .stat-value.green  { color: var(--green); }
     .stat-value.blue   { color: var(--blue); }
+    .stat-value.purple { color: var(--purple); }
 
-    /* ── Toolbar ── */
-    .toolbar {
+    /* ── Station breakdown ── */
+    .section {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .section-header {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
-      flex-wrap: wrap;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
     }
-    .toolbar-title { font-size: 15px; font-weight: 600; flex: 1; }
+    .section-header:hover { background: #1a1a30; }
+    .section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2); }
+    .section-toggle { font-size: 11px; color: var(--text2); }
 
-    .filter-group { display: flex; gap: 4px; }
+    .station-table { width: 100%; border-collapse: collapse; }
+    .station-table th {
+      padding: 8px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text2);
+      white-space: nowrap;
+    }
+    .station-table th.r { text-align: right; }
+    .station-table td { padding: 8px 14px; border-top: 1px solid var(--border); white-space: nowrap; }
+    .station-table td.r { text-align: right; }
+    .station-table tr:hover td { background: var(--bg3); }
+    .st-name { font-weight: 500; color: var(--text); }
+    .st-sell { color: var(--green); font-variant-numeric: tabular-nums; }
+    .st-buy  { color: var(--blue);  font-variant-numeric: tabular-nums; }
+
+    /* ── Toolbar ── */
+    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .toolbar-title { font-size: 15px; font-weight: 600; flex: 1; }
+    .filter-group { display: flex; gap: 4px; align-items: center; }
+    .filter-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+
     .filter-btn {
       padding: 5px 12px;
       border: 1px solid var(--border);
@@ -216,21 +188,16 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-    .filter-btn:hover          { background: var(--bg3); color: var(--text); border-color: var(--text2); }
-    .filter-btn.f-active       { background: var(--bg3); color: var(--text); border-color: var(--text2); }
-    .filter-btn.f-active-sell  { background: rgba(61,186,110,.15); color: var(--green); border-color: var(--green); }
-    .filter-btn.f-active-buy   { background: rgba(74,158,237,.15); color: var(--blue);  border-color: var(--blue);  }
+    .filter-btn:hover           { background: var(--bg3); color: var(--text); border-color: var(--text2); }
+    .filter-btn.f-active        { background: var(--bg3); color: var(--text); border-color: var(--text2); }
+    .filter-btn.f-active-sell   { background: rgba(61,186,110,.15); color: var(--green);  border-color: var(--green); }
+    .filter-btn.f-active-buy    { background: rgba(74,158,237,.15); color: var(--blue);   border-color: var(--blue); }
+    .filter-btn.f-active-corp   { background: rgba(155,111,212,.15); color: var(--purple); border-color: var(--purple); }
+    .filter-btn.f-active-personal { background: rgba(198,162,39,.12); color: var(--gold); border-color: var(--gold); }
 
-    /* ── Table ── */
-    .table-wrap {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      overflow: auto;
-    }
-
+    /* ── Orders table ── */
+    .table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; overflow: auto; }
     table { width: 100%; border-collapse: collapse; }
-
     thead th {
       padding: 10px 14px;
       text-align: left;
@@ -245,56 +212,48 @@
       cursor: pointer;
       user-select: none;
     }
+    thead th.r { text-align: right; }
     thead th:hover { color: var(--text); }
     thead th.th-sorted { color: var(--gold); }
-
     tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
     tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: var(--bg3); }
-
     td { padding: 9px 14px; white-space: nowrap; vertical-align: middle; }
+    td.r { text-align: right; }
 
     .item-cell { display: flex; align-items: center; gap: 10px; }
-    .item-icon {
-      width: 32px; height: 32px;
-      border-radius: 3px;
-      background: var(--bg3);
-      flex-shrink: 0;
-    }
+    .item-icon { width: 32px; height: 32px; border-radius: 3px; background: var(--bg3); flex-shrink: 0; }
     .item-name { font-weight: 500; }
 
     .badge {
       display: inline-block;
-      padding: 2px 8px;
+      padding: 2px 7px;
       border-radius: 3px;
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.4px;
     }
-    .badge-sell { background: rgba(61,186,110,.18); color: var(--green); border: 1px solid rgba(61,186,110,.4); }
-    .badge-buy  { background: rgba(74,158,237,.18); color: var(--blue);  border: 1px solid rgba(74,158,237,.4); }
-    .badge-corp { background: rgba(198,162,39,.12); color: var(--gold);  border: 1px solid rgba(198,162,39,.3); font-size: 10px; margin-left: 4px; }
+    .badge-sell     { background: rgba(61,186,110,.18); color: var(--green);  border: 1px solid rgba(61,186,110,.4); }
+    .badge-buy      { background: rgba(74,158,237,.18); color: var(--blue);   border: 1px solid rgba(74,158,237,.4); }
+    .badge-corp     { background: rgba(155,111,212,.15); color: var(--purple); border: 1px solid rgba(155,111,212,.35); margin-left: 5px; font-size: 10px; }
+    .badge-personal { background: rgba(198,162,39,.12); color: var(--gold);   border: 1px solid rgba(198,162,39,.3);  margin-left: 5px; font-size: 10px; }
 
     .price { color: var(--gold); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .total { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-    .vol-bar  { display: flex; align-items: center; gap: 8px; }
-    .vol-track { width: 56px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+    .qty-cell  { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+    .vol-track { width: 48px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; flex-shrink: 0; }
     .vol-fill  { height: 100%; background: var(--blue); border-radius: 2px; }
     .vol-text  { font-size: 12px; color: var(--text2); font-variant-numeric: tabular-nums; }
 
-    .loc-cell { color: var(--text2); max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
-
+    .loc-cell { color: var(--text2); max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
     .expiry-ok   { color: var(--text2); }
     .expiry-warn { color: var(--orange); }
     .expiry-crit { color: var(--red); }
 
     /* ── State messages ── */
-    .state-msg {
-      padding: 60px 20px;
-      text-align: center;
-      color: var(--text2);
-    }
+    .state-msg { padding: 60px 20px; text-align: center; color: var(--text2); }
     .spinner {
       width: 32px; height: 32px;
       border: 3px solid var(--border);
@@ -305,12 +264,14 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .err-text { color: var(--red); margin-top: 8px; font-size: 13px; }
+    .warn-note { color: var(--orange); font-size: 12px; margin-top: 6px; }
 
     /* ── Responsive ── */
     @media (max-width: 640px) {
       .login-card { padding: 24px; }
       #dashboard-view { padding: 12px; }
       .stat-card { min-width: 100px; }
+      .stat-card.stat-wide { min-width: 150px; }
     }
   </style>
 </head>
@@ -327,11 +288,13 @@
   <div id="login-view">
     <div class="login-card">
       <h2>EVE Orders Dashboard</h2>
-      <p>Monitor your active market orders. Sign in with your EVE Online account to get started.</p>
+      <p>Monitor your character and corporation market orders. Sign in with your EVE Online account to get started.</p>
 
       <div class="setup-note">
         <strong>First-time setup:</strong> You need a free EVE developer application.<br>
         Register at <code>developers.eveonline.com</code> → Create New Application<br>
+        Add scopes: <code>esi-markets.read_character_orders.v1</code> and
+        <code>esi-markets.read_corporation_orders.v1</code><br>
         Set the <strong>Callback URL</strong> to exactly:<br>
         <code id="callback-url-display"></code>
       </div>
@@ -356,20 +319,36 @@
   <!-- ── Dashboard View ── -->
   <div id="dashboard-view" style="display:none">
 
+    <!-- Stats -->
     <div class="stats-bar" id="stats-bar">
       <div class="stat-card"><div class="stat-label">Orders</div><div class="stat-value">—</div></div>
     </div>
 
+    <!-- Station Breakdown -->
+    <div class="section" id="station-section">
+      <div class="section-header" onclick="toggleSection()">
+        <span class="section-title">Station Breakdown</span>
+        <span class="section-toggle" id="section-toggle-icon">▲ hide</span>
+      </div>
+      <div id="station-breakdown-body"></div>
+    </div>
+
+    <!-- Orders toolbar -->
     <div class="toolbar">
       <span class="toolbar-title">Market Orders</span>
       <div class="filter-group">
-        <button class="filter-btn f-active"      data-f="all"  onclick="setFilter('all',  this)">All</button>
-        <button class="filter-btn"               data-f="sell" onclick="setFilter('sell', this)">Sell</button>
-        <button class="filter-btn"               data-f="buy"  onclick="setFilter('buy',  this)">Buy</button>
+        <button class="filter-btn f-active"  data-tf="all"  onclick="setTypeFilter('all',  this)">All</button>
+        <button class="filter-btn"           data-tf="sell" onclick="setTypeFilter('sell', this)">Sell</button>
+        <button class="filter-btn"           data-tf="buy"  onclick="setTypeFilter('buy',  this)">Buy</button>
+        <div class="filter-sep"></div>
+        <button class="filter-btn f-active"  data-sf="all"      onclick="setSrcFilter('all',      this)">All</button>
+        <button class="filter-btn"           data-sf="personal" onclick="setSrcFilter('personal', this)">Personal</button>
+        <button class="filter-btn"           data-sf="corp"     onclick="setSrcFilter('corp',     this)">Corp</button>
       </div>
       <button class="btn btn-secondary" id="refresh-btn" onclick="loadOrders()">Refresh</button>
     </div>
 
+    <!-- Orders table -->
     <div class="table-wrap">
       <div class="state-msg" id="table-msg">
         <div class="spinner"></div>
@@ -378,12 +357,13 @@
       <table id="orders-table" style="display:none">
         <thead>
           <tr>
-            <th onclick="sortBy('item')">    Item     <span id="si-item"></span></th>
-            <th onclick="sortBy('type')">    Type     <span id="si-type"></span></th>
-            <th onclick="sortBy('price')">   Price    <span id="si-price"></span></th>
-            <th onclick="sortBy('volume')">  Volume   <span id="si-volume"></span></th>
-            <th onclick="sortBy('location')">Location <span id="si-location"></span></th>
-            <th onclick="sortBy('expiry')">  Expires  <span id="si-expiry"></span></th>
+            <th onclick="sortBy('item')">    Item       <span id="si-item"></span></th>
+            <th onclick="sortBy('type')">    Type       <span id="si-type"></span></th>
+            <th onclick="sortBy('price')" class="r">Unit Price  <span id="si-price"></span></th>
+            <th onclick="sortBy('volume')" class="r">Qty         <span id="si-volume"></span></th>
+            <th onclick="sortBy('total')" class="r">Order Total <span id="si-total"></span></th>
+            <th onclick="sortBy('location')">Location   <span id="si-location"></span></th>
+            <th onclick="sortBy('expiry')"> Expires     <span id="si-expiry"></span></th>
           </tr>
         </thead>
         <tbody id="orders-body"></tbody>
@@ -404,9 +384,12 @@ const HARDCODED_CLIENT_ID = 'a46cb3ebd7d843c7ac95f827a43f5e56';
 // =============================================================
 // Constants
 // =============================================================
-const SSO_BASE    = 'https://login.eveonline.com';
-const ESI_BASE    = 'https://esi.evetech.net/latest';
-const SCOPES      = 'esi-markets.read_character_orders.v1';
+const SSO_BASE     = 'https://login.eveonline.com';
+const ESI_BASE     = 'https://esi.evetech.net/latest';
+const SCOPES       = [
+  'esi-markets.read_character_orders.v1',
+  'esi-markets.read_corporation_orders.v1',
+].join(' ');
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 
 const K = {
@@ -415,6 +398,7 @@ const K = {
   exp:      'eve_exp',
   cid:      'eve_cid',
   cname:    'eve_cname',
+  corpId:   'eve_corp_id',
   clientId: 'eve_client_id',
   verifier: 'eve_pkce_v',
   state:    'eve_pkce_s',
@@ -423,12 +407,14 @@ const K = {
 // =============================================================
 // App state
 // =============================================================
-let allOrders    = [];
-let typeNames    = {};
-let locNames     = {};
-let activeFilter = 'all';
-let sortCol      = 'expiry';
-let sortDir      = 1;
+let allOrders      = [];
+let typeNames      = {};
+let locNames       = {};
+let activeTypeFilt = 'all';   // all | sell | buy
+let activeSrcFilt  = 'all';   // all | personal | corp
+let sortCol        = 'expiry';
+let sortDir        = 1;
+let sectionVisible = true;
 
 // =============================================================
 // PKCE helpers
@@ -461,9 +447,9 @@ async function startLogin() {
   localStorage.setItem(K.clientId, clientId);
   hideLoginError();
 
-  const verifier   = randomStr(64);
-  const state      = randomStr(16);
-  const challenge  = await pkceChallenge(verifier);
+  const verifier  = randomStr(64);
+  const state     = randomStr(16);
+  const challenge = await pkceChallenge(verifier);
 
   localStorage.setItem(K.verifier, verifier);
   localStorage.setItem(K.state,    state);
@@ -482,7 +468,7 @@ async function startLogin() {
 }
 
 // =============================================================
-// OAuth callback handler
+// OAuth callback
 // =============================================================
 async function handleCallback(code, state) {
   if (state !== localStorage.getItem(K.state)) {
@@ -494,7 +480,7 @@ async function handleCallback(code, state) {
   if (!verifier || !clientId) throw new Error('Missing PKCE data. Please try logging in again.');
 
   const resp = await fetch(`${SSO_BASE}/v2/oauth/token`, {
-    method: 'POST',
+    method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type:    'authorization_code',
@@ -512,11 +498,8 @@ async function handleCallback(code, state) {
 
   const tokens = await resp.json();
   storeTokens(tokens);
-
   localStorage.removeItem(K.verifier);
   localStorage.removeItem(K.state);
-
-  // Clean code/state from URL
   window.history.replaceState({}, '', window.location.pathname);
 }
 
@@ -526,10 +509,8 @@ async function handleCallback(code, state) {
 function storeTokens(tokens) {
   localStorage.setItem(K.at,  tokens.access_token);
   if (tokens.refresh_token) localStorage.setItem(K.rt, tokens.refresh_token);
-  // 30 s buffer before actual expiry
   localStorage.setItem(K.exp, Date.now() + (tokens.expires_in - 30) * 1000);
 
-  // Decode character info from JWT payload
   try {
     const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
     localStorage.setItem(K.cid,   payload.sub.replace('CHARACTER:EVE:', ''));
@@ -543,16 +524,16 @@ async function getToken() {
   if (Date.now() < parseInt(localStorage.getItem(K.exp) || '0')) {
     return localStorage.getItem(K.at);
   }
-  return refreshToken();
+  return doRefreshToken();
 }
 
-async function refreshToken() {
+async function doRefreshToken() {
   const rt       = localStorage.getItem(K.rt);
   const clientId = localStorage.getItem(K.clientId);
-  if (!rt || !clientId) { logout(); throw new Error('Session expired. Please log in again.'); }
+  if (!rt || !clientId) { logout(); throw new Error('Session expired.'); }
 
   const resp = await fetch(`${SSO_BASE}/v2/oauth/token`, {
-    method: 'POST',
+    method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type:    'refresh_token',
@@ -588,7 +569,6 @@ async function esiGet(path) {
 async function resolveNames(ids) {
   if (!ids.length) return {};
   const out = {};
-  // ESI /universe/names/ accepts up to 1000 IDs per request
   for (let i = 0; i < ids.length; i += 999) {
     const chunk = ids.slice(i, i + 999);
     try {
@@ -607,28 +587,64 @@ async function resolveNames(ids) {
 }
 
 // =============================================================
-// Orders
+// Load orders — personal + corp
 // =============================================================
+let corpOrdersWarning = '';
+
 async function loadOrders() {
   showMsg('<div class="spinner"></div>Loading orders…');
+  document.getElementById('station-breakdown-body').innerHTML = '';
   const btn = document.getElementById('refresh-btn');
   btn.disabled = true;
+  corpOrdersWarning = '';
 
   try {
     const charId = localStorage.getItem(K.cid);
-    allOrders    = await esiGet(`/characters/${charId}/orders/`);
 
-    // Resolve type names
-    const typeIds = [...new Set(allOrders.map(o => o.type_id))];
-    typeNames     = await resolveNames(typeIds);
+    // ── Character personal orders ──────────────────────────────
+    const charOrdersRaw = await esiGet(`/characters/${charId}/orders/`);
+    // Keep only orders placed for the character personally (not via corp role)
+    const personalOrders = charOrdersRaw
+      .filter(o => !o.is_corporation)
+      .map(o => ({ ...o, _src: 'personal', is_buy_order: o.is_buy_order || false }));
 
-    // Resolve NPC station names (structure IDs are > 1e12 and need auth)
+    // ── Corporation orders ─────────────────────────────────────
+    let corpOrders = [];
+    try {
+      // Get corp ID from character info
+      const charInfo = await esiGet(`/characters/${charId}/`);
+      const corpId   = charInfo.corporation_id;
+      localStorage.setItem(K.corpId, corpId);
+
+      const corpRaw = await esiGet(`/corporations/${corpId}/orders/`);
+      corpOrders = corpRaw.map(o => ({
+        ...o,
+        _src:         'corp',
+        is_buy_order: o.is_buy_order || false,
+        // corp endpoint uses issued_by instead of is_corporation
+        is_corporation: true,
+      }));
+    } catch (e) {
+      if (e.message.includes('403')) {
+        corpOrdersWarning = 'Corp orders require the Accountant or Market Manager role — showing personal orders only.';
+      } else {
+        corpOrdersWarning = `Corp orders unavailable: ${e.message}`;
+      }
+    }
+
+    allOrders = [...personalOrders, ...corpOrders];
+
+    // ── Resolve names ──────────────────────────────────────────
+    const typeIds    = [...new Set(allOrders.map(o => o.type_id))];
+    typeNames        = await resolveNames(typeIds);
+
     const stationIds = [...new Set(
       allOrders.map(o => o.location_id).filter(id => id < 1_000_000_000_000)
     )];
     locNames = await resolveNames(stationIds);
 
     renderStats();
+    renderStationBreakdown();
     renderOrders();
   } catch (e) {
     showMsg(`<div class="err-text">⚠ ${escHtml(e.message)}</div>`);
@@ -639,17 +655,38 @@ async function loadOrders() {
 }
 
 // =============================================================
-// Render
+// Render: stats bar
 // =============================================================
 function renderStats() {
-  const sell = allOrders.filter(o => !o.is_buy_order);
-  const buy  = allOrders.filter(o =>  o.is_buy_order);
-  const val  = sell.reduce((s, o) => s + o.price * o.volume_remain, 0);
+  const sell    = allOrders.filter(o => !o.is_buy_order);
+  const buy     = allOrders.filter(o =>  o.is_buy_order);
+  const corp    = allOrders.filter(o =>  o._src === 'corp');
+  const personal = allOrders.filter(o => o._src === 'personal');
+
+  const sellVal = sell.reduce((s, o) => s + o.price * o.volume_remain, 0);
+  const buyVal  = buy.reduce( (s, o) => s + o.price * o.volume_remain, 0);
+
+  // Most valuable item by aggregated sell value
+  const byItem = {};
+  sell.forEach(o => {
+    byItem[o.type_id] = (byItem[o.type_id] || 0) + o.price * o.volume_remain;
+  });
+  const topEntry   = Object.entries(byItem).sort((a, b) => b[1] - a[1])[0];
+  const topName    = topEntry ? (typeNames[topEntry[0]] || `Type ${topEntry[0]}`) : '—';
+  const topVal     = topEntry ? topEntry[1] : 0;
+
+  const warnHtml = corpOrdersWarning
+    ? `<div class="stat-card" style="border-left:3px solid var(--orange);flex-basis:100%">
+         <div class="stat-label">Notice</div>
+         <div class="warn-note">${escHtml(corpOrdersWarning)}</div>
+       </div>`
+    : '';
 
   document.getElementById('stats-bar').innerHTML = `
     <div class="stat-card">
       <div class="stat-label">Total Orders</div>
       <div class="stat-value">${allOrders.length}</div>
+      <div class="stat-sub">${personal.length} personal · ${corp.length} corp</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Sell Orders</div>
@@ -660,43 +697,131 @@ function renderStats() {
       <div class="stat-value blue">${buy.length}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Sell Value</div>
-      <div class="stat-value gold">${fmtISK(val)}</div>
+      <div class="stat-label">Total Sell Value</div>
+      <div class="stat-value gold">${fmtISK(sellVal)}</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Buy Volume</div>
+      <div class="stat-value blue">${fmtISK(buyVal)}</div>
+    </div>
+    <div class="stat-card stat-wide">
+      <div class="stat-label">Most Valuable Item (sell)</div>
+      <div class="stat-value gold" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(topName)}</div>
+      <div class="stat-sub">${fmtISK(topVal)}</div>
+    </div>
+    ${warnHtml}
   `;
 }
 
+// =============================================================
+// Render: station breakdown
+// =============================================================
+function renderStationBreakdown() {
+  // Group by location_id
+  const stations = {};
+  allOrders.forEach(o => {
+    const loc = o.location_id;
+    if (!stations[loc]) stations[loc] = { sell: 0, buy: 0, sellVal: 0, buyVal: 0 };
+    if (o.is_buy_order) {
+      stations[loc].buy++;
+      stations[loc].buyVal += o.price * o.volume_remain;
+    } else {
+      stations[loc].sell++;
+      stations[loc].sellVal += o.price * o.volume_remain;
+    }
+  });
+
+  // Sort stations by total sell value desc
+  const sorted = Object.entries(stations).sort((a, b) => b[1].sellVal - a[1].sellVal);
+
+  if (!sorted.length) {
+    document.getElementById('station-breakdown-body').innerHTML =
+      '<div style="padding:20px;color:var(--text2);font-size:13px">No station data.</div>';
+    return;
+  }
+
+  const rows = sorted.map(([locId, s]) => {
+    const name    = parseInt(locId) < 1_000_000_000_000
+                      ? (locNames[locId] || `Station ${locId}`)
+                      : 'Player Structure';
+    const total   = s.sellVal + s.buyVal;
+    const orders  = s.sell + s.buy;
+    return `
+      <tr>
+        <td class="st-name">${escHtml(name)}</td>
+        <td class="r">${orders}</td>
+        <td class="r st-sell">${s.sell}</td>
+        <td class="r st-buy">${s.buy}</td>
+        <td class="r st-sell">${fmtISK(s.sellVal)}</td>
+        <td class="r st-buy">${fmtISK(s.buyVal)}</td>
+        <td class="r price">${fmtISK(total)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  document.getElementById('station-breakdown-body').innerHTML = `
+    <table class="station-table">
+      <thead>
+        <tr>
+          <th>Station</th>
+          <th class="r">Orders</th>
+          <th class="r">Sell</th>
+          <th class="r">Buy</th>
+          <th class="r">Sell Value</th>
+          <th class="r">Buy Volume</th>
+          <th class="r">Combined</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function toggleSection() {
+  sectionVisible = !sectionVisible;
+  document.getElementById('station-breakdown-body').style.display = sectionVisible ? '' : 'none';
+  document.getElementById('section-toggle-icon').textContent = sectionVisible ? '▲ hide' : '▼ show';
+}
+
+// =============================================================
+// Render: orders table
+// =============================================================
 function renderOrders() {
   let orders = allOrders;
-  if (activeFilter === 'sell') orders = orders.filter(o => !o.is_buy_order);
-  if (activeFilter === 'buy')  orders = orders.filter(o =>  o.is_buy_order);
+
+  // Type filter
+  if (activeTypeFilt === 'sell') orders = orders.filter(o => !o.is_buy_order);
+  if (activeTypeFilt === 'buy')  orders = orders.filter(o =>  o.is_buy_order);
+
+  // Source filter
+  if (activeSrcFilt === 'personal') orders = orders.filter(o => o._src === 'personal');
+  if (activeSrcFilt === 'corp')     orders = orders.filter(o => o._src === 'corp');
+
   orders = doSort(orders);
 
   if (!orders.length) {
-    const label = activeFilter === 'all' ? '' : activeFilter + ' ';
-    showMsg(`No active ${label}orders found.`);
+    showMsg('No orders match the current filters.');
     return;
   }
 
   const now  = Date.now();
   const rows = orders.map(o => {
-    const name  = typeNames[o.type_id]    || `Type ${o.type_id}`;
-    const loc   = o.location_id < 1_000_000_000_000
-                    ? (locNames[o.location_id] || `Station ${o.location_id}`)
-                    : 'Player Structure';
-    const isBuy = o.is_buy_order;
-    const pct   = Math.round((o.volume_remain / o.volume_total) * 100);
+    const name   = typeNames[o.type_id] || `Type ${o.type_id}`;
+    const loc    = o.location_id < 1_000_000_000_000
+                     ? (locNames[o.location_id] || `Station ${o.location_id}`)
+                     : 'Player Structure';
+    const isBuy  = o.is_buy_order;
+    const pct    = Math.round((o.volume_remain / o.volume_total) * 100);
+    const orderTotal = o.price * o.volume_remain;
 
     const expiresMs   = new Date(o.issued).getTime() + o.duration * 86_400_000;
     const daysLeft    = Math.ceil((expiresMs - now) / 86_400_000);
     const expiryClass = daysLeft <= 1 ? 'expiry-crit' : daysLeft <= 3 ? 'expiry-warn' : 'expiry-ok';
-    const expiryText  = daysLeft <= 0 ? 'Expiring'
-                      : daysLeft === 1 ? '1 day'
-                      : `${daysLeft} days`;
+    const expiryText  = daysLeft <= 0 ? 'Expiring' : daysLeft === 1 ? '1 day' : `${daysLeft} days`;
 
-    const corpBadge = o.is_corporation
+    const srcBadge = o._src === 'corp'
       ? '<span class="badge badge-corp">CORP</span>'
-      : '';
+      : '<span class="badge badge-personal">ME</span>';
 
     return `
       <tr>
@@ -705,17 +830,18 @@ function renderOrders() {
             <img class="item-icon"
                  src="https://images.evetech.net/types/${o.type_id}/icon?size=32"
                  alt="" loading="lazy">
-            <span class="item-name">${escHtml(name)}</span>${corpBadge}
+            <span class="item-name">${escHtml(name)}</span>${srcBadge}
           </div>
         </td>
         <td><span class="badge ${isBuy ? 'badge-buy' : 'badge-sell'}">${isBuy ? 'Buy' : 'Sell'}</span></td>
-        <td class="price">${fmtISK(o.price)}</td>
-        <td>
-          <div class="vol-bar">
+        <td class="r price">${fmtISK(o.price)}</td>
+        <td class="r">
+          <div class="qty-cell">
             <div class="vol-track"><div class="vol-fill" style="width:${pct}%"></div></div>
-            <span class="vol-text">${fmtNum(o.volume_remain)} / ${fmtNum(o.volume_total)}</span>
+            <span class="vol-text">${fmtNum(o.volume_remain)}<span style="color:var(--border)"> / </span>${fmtNum(o.volume_total)}</span>
           </div>
         </td>
+        <td class="r total">${fmtISK(orderTotal)}</td>
         <td class="loc-cell" title="${escHtml(loc)}">${escHtml(loc)}</td>
         <td class="${expiryClass}">${expiryText}</td>
       </tr>
@@ -723,7 +849,7 @@ function renderOrders() {
   }).join('');
 
   document.getElementById('orders-body').innerHTML = rows;
-  document.getElementById('table-msg').style.display   = 'none';
+  document.getElementById('table-msg').style.display    = 'none';
   document.getElementById('orders-table').style.display = 'table';
 }
 
@@ -734,24 +860,12 @@ function doSort(orders) {
   return [...orders].sort((a, b) => {
     let av, bv;
     switch (sortCol) {
-      case 'item':
-        av = typeNames[a.type_id] || '';
-        bv = typeNames[b.type_id] || '';
-        break;
-      case 'type':
-        av = a.is_buy_order ? 0 : 1;
-        bv = b.is_buy_order ? 0 : 1;
-        break;
-      case 'price':
-        av = a.price; bv = b.price;
-        break;
-      case 'volume':
-        av = a.volume_remain; bv = b.volume_remain;
-        break;
-      case 'location':
-        av = locNames[a.location_id] || '';
-        bv = locNames[b.location_id] || '';
-        break;
+      case 'item':     av = typeNames[a.type_id] || ''; bv = typeNames[b.type_id] || ''; break;
+      case 'type':     av = a.is_buy_order ? 0 : 1;    bv = b.is_buy_order ? 0 : 1;    break;
+      case 'price':    av = a.price;                   bv = b.price;                   break;
+      case 'volume':   av = a.volume_remain;            bv = b.volume_remain;            break;
+      case 'total':    av = a.price * a.volume_remain;  bv = b.price * b.volume_remain;  break;
+      case 'location': av = locNames[a.location_id] || ''; bv = locNames[b.location_id] || ''; break;
       case 'expiry':
         av = new Date(a.issued).getTime() + a.duration * 86_400_000;
         bv = new Date(b.issued).getTime() + b.duration * 86_400_000;
@@ -768,30 +882,40 @@ function sortBy(col) {
   sortDir = sortCol === col ? -sortDir : 1;
   sortCol = col;
 
-  const cols = ['item','type','price','volume','location','expiry'];
+  const cols = ['item','type','price','volume','total','location','expiry'];
   cols.forEach(c => {
-    const indicator = document.getElementById(`si-${c}`);
-    const th        = indicator?.parentElement;
-    if (indicator) indicator.textContent = c === sortCol ? (sortDir === 1 ? ' ▲' : ' ▼') : '';
-    if (th) th.classList.toggle('th-sorted', c === sortCol);
+    const ind = document.getElementById(`si-${c}`);
+    const th  = ind?.parentElement;
+    if (ind) ind.textContent = c === sortCol ? (sortDir === 1 ? ' ▲' : ' ▼') : '';
+    if (th)  th.classList.toggle('th-sorted', c === sortCol);
   });
 
   renderOrders();
 }
 
 // =============================================================
-// Filter
+// Filters
 // =============================================================
-function setFilter(filter, btn) {
-  activeFilter = filter;
-  document.querySelectorAll('.filter-btn').forEach(b => {
+function setTypeFilter(filter, btn) {
+  activeTypeFilt = filter;
+  document.querySelectorAll('[data-tf]').forEach(b => {
     b.className = 'filter-btn';
-    if (b === btn) {
-      b.classList.add(
-        filter === 'sell' ? 'f-active-sell' :
-        filter === 'buy'  ? 'f-active-buy'  : 'f-active'
-      );
-    }
+    if (b === btn) b.classList.add(
+      filter === 'sell' ? 'f-active-sell' :
+      filter === 'buy'  ? 'f-active-buy'  : 'f-active'
+    );
+  });
+  renderOrders();
+}
+
+function setSrcFilter(filter, btn) {
+  activeSrcFilt = filter;
+  document.querySelectorAll('[data-sf]').forEach(b => {
+    b.className = 'filter-btn';
+    if (b === btn) b.classList.add(
+      filter === 'corp'     ? 'f-active-corp'     :
+      filter === 'personal' ? 'f-active-personal' : 'f-active'
+    );
   });
   renderOrders();
 }
@@ -800,11 +924,9 @@ function setFilter(filter, btn) {
 // UI helpers
 // =============================================================
 function showMsg(html) {
-  const msg   = document.getElementById('table-msg');
-  const table = document.getElementById('orders-table');
-  msg.innerHTML       = html;
-  msg.style.display   = 'block';
-  table.style.display = 'none';
+  document.getElementById('table-msg').innerHTML    = html;
+  document.getElementById('table-msg').style.display = 'block';
+  document.getElementById('orders-table').style.display = 'none';
 }
 
 function showView(v) {
@@ -826,7 +948,7 @@ function renderHeaderChar() {
 
 function showLoginError(msg) {
   const el = document.getElementById('login-error');
-  el.textContent  = msg;
+  el.textContent   = msg;
   el.style.display = 'block';
 }
 function hideLoginError() {
@@ -859,16 +981,13 @@ function escHtml(s) {
 // Init
 // =============================================================
 async function init() {
-  // Show the redirect URI so the user knows what to enter in the EVE portal
   const cbEl = document.getElementById('callback-url-display');
   if (cbEl) cbEl.textContent = REDIRECT_URI;
 
-  // Pre-fill saved client ID
   const saved = localStorage.getItem(K.clientId) || HARDCODED_CLIENT_ID;
   const inp   = document.getElementById('client-id-input');
   if (inp && saved) inp.value = saved;
 
-  // Check for OAuth callback
   const params = new URLSearchParams(window.location.search);
   const code   = params.get('code');
   const state  = params.get('state');
@@ -893,7 +1012,6 @@ async function init() {
     }
   }
 
-  // Check for existing session
   const at  = localStorage.getItem(K.at);
   const cid = localStorage.getItem(K.cid);
 
