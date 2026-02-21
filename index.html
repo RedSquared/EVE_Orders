@@ -625,7 +625,7 @@ async function loadOrders() {
     // placed by this character also consume personal order slots)
 
     // ── Character skills → order slot capacity ─────────────────
-    // Trade:3443 +4/lvl  Retail:3444 +8/lvl  Wholesale:16596 +16/lvl  Tycoon:3446 +32/lvl
+    // Trade:3443 +4/lvl  Retail:3444 +8/lvl  Wholesale:16596 +16/lvl  Tycoon:18580 +32/lvl
     charSlotsMax = 0;
     try {
       const skillData = await esiGet(`/characters/${charId}/skills/`);
@@ -635,7 +635,7 @@ async function loadOrders() {
         + (sm[3443]  || 0) *  4   // Trade
         + (sm[3444]  || 0) *  8   // Retail
         + (sm[16596] || 0) * 16   // Wholesale
-        + (sm[3446]  || 0) * 32;  // Tycoon
+        + (sm[18580] || 0) * 32;  // Tycoon
     } catch (e) {
       console.warn('Could not fetch skills (scope missing?):', e.message);
     }
