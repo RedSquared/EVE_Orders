@@ -662,14 +662,14 @@ async function loadOrders() {
   try {
     const charId = localStorage.getItem(K.cid);
 
-    // ── Character personal orders + slot tracking ──────────────
+    // ── Character personal orders ──────────────────────────────
     const charOrdersRaw = await esiGet(`/characters/${charId}/orders/`);
-    // All char orders (personal + corp ones they placed) consume their order slots
-    charSlotsUsed = charOrdersRaw.length;
     // Keep only orders placed for the character personally (not via corp role)
     const personalOrders = charOrdersRaw
       .filter(o => !o.is_corporation)
       .map(o => ({ ...o, _src: 'personal', is_buy_order: o.is_buy_order || false }));
+    // Personal orders are the only ones that count against personal slot cap
+    charSlotsUsed = personalOrders.length;
 
     // ── Character skills → order slot capacity ─────────────────
     // Trade:3443 +4/lvl  Retail:3444 +8/lvl  Wholesale:3445 +16/lvl  Tycoon:3446 +32/lvl
@@ -739,37 +739,38 @@ async function loadOrders() {
 // Render: stats bar
 // =============================================================
 function renderStats() {
-  // Use corp orders for the "valuable" stats (user runs a one-man trading corp)
-  const corpOrds   = allOrders.filter(o => o._src === 'corp');
-  const personalOrds = allOrders.filter(o => o._src === 'personal');
-  const corpSell   = corpOrds.filter(o => !o.is_buy_order);
-  const corpBuy    = corpOrds.filter(o =>  o.is_buy_order);
-  const allSell    = allOrders.filter(o => !o.is_buy_order);
-  const allBuy     = allOrders.filter(o =>  o.is_buy_order);
+  // Respect active location filter — all cards (except personal slots) react to it
+  const isLoc    = activeLocFilt !== null;
+  const fullLoc  = isLoc ? (locNames[activeLocFilt] || `Station ${activeLocFilt}`) : null;
+  // Shorten "Jita IV - Moon 4 - Caldari Navy Assembly Plant" → "Jita IV"
+  const shortLoc = fullLoc ? fullLoc.split(' - ')[0] : null;
+  const l        = shortLoc ? ` — ${shortLoc}` : '';
 
-  const sellVal = allSell.reduce((s, o) => s + o.price * o.volume_remain, 0);
-  const buyVal  = allBuy.reduce( (s, o) => s + o.price * o.volume_remain, 0);
+  // Corp orders in scope
+  const corpOrds = allOrders.filter(o => o._src === 'corp' && (!isLoc || o.location_id === activeLocFilt));
+  const corpSell = corpOrds.filter(o => !o.is_buy_order);
+  const corpBuy  = corpOrds.filter(o =>  o.is_buy_order);
 
-  // Most valuable item — corp sell orders, grouped by type, highest aggregate total
+  // All orders in scope (for sell/buy totals)
+  const scopeAll = isLoc ? allOrders.filter(o => o.location_id === activeLocFilt) : allOrders;
+  const sellVal  = scopeAll.filter(o => !o.is_buy_order).reduce((s, o) => s + o.price * o.volume_remain, 0);
+  const buyVal   = scopeAll.filter(o =>  o.is_buy_order).reduce((s, o) => s + o.price * o.volume_remain, 0);
+
+  // Most valuable item — corp sell orders in scope
   const byItem = {};
-  corpSell.forEach(o => {
-    byItem[o.type_id] = (byItem[o.type_id] || 0) + o.price * o.volume_remain;
-  });
+  corpSell.forEach(o => { byItem[o.type_id] = (byItem[o.type_id] || 0) + o.price * o.volume_remain; });
   const topItemEntry = Object.entries(byItem).sort((a, b) => b[1] - a[1])[0];
   const topItemName  = topItemEntry ? (typeNames[topItemEntry[0]] || `Type ${topItemEntry[0]}`) : '—';
   const topItemVal   = topItemEntry ? topItemEntry[1] : 0;
 
-  // Most valuable single order — corp orders, highest order total
-  const topOrder     = corpOrds.reduce((best, o) => {
-    return (o.price * o.volume_remain) > (best ? best.price * best.volume_remain : 0) ? o : best;
-  }, null);
+  // Most valuable single order — corp orders in scope
+  const topOrder    = corpOrds.reduce((best, o) =>
+    (o.price * o.volume_remain) > (best ? best.price * best.volume_remain : 0) ? o : best, null);
   const topOrderName = topOrder ? (typeNames[topOrder.type_id] || `Type ${topOrder.type_id}`) : '—';
   const topOrderVal  = topOrder ? topOrder.price * topOrder.volume_remain : 0;
-  const topOrderSub  = topOrder
-    ? `${fmtNum(topOrder.volume_remain)} × ${fmtISK(topOrder.price)}`
-    : '';
+  const topOrderSub  = topOrder ? `${fmtNum(topOrder.volume_remain)} × ${fmtISK(topOrder.price)}` : '';
 
-  // Order slots — personal character level (corp orders you place still consume your slots)
+  // Personal slots — never location-filtered, always character-level
   const slotsRemain = charSlotsMax > 0 ? charSlotsMax - charSlotsUsed : null;
   const slotsPct    = charSlotsMax > 0 ? Math.min(100, Math.round((charSlotsUsed / charSlotsMax) * 100)) : 0;
   const slotFill    = slotsPct >= 90 ? 'crit' : slotsPct >= 70 ? 'warn' : '';
@@ -780,7 +781,7 @@ function renderStats() {
     : `<div class="stat-value" style="font-size:15px;color:var(--text2)">${charSlotsUsed} used</div>
        <div class="stat-sub" style="color:var(--orange)">Add esi-skills scope to see max</div>`;
 
-  // Undercut summary — corp orders only
+  // Undercut — corp orders in scope
   const ucTotal   = corpOrds.length;
   const ucCut     = corpOrds.filter(o => undercutStatus[o.order_id]?.status === 'undercut').length;
   const ucBest    = corpOrds.filter(o => undercutStatus[o.order_id]?.status === 'best').length;
@@ -804,29 +805,29 @@ function renderStats() {
       ${slotsHtml}
     </div>
     <div class="stat-card">
-      <div class="stat-label">Corp Orders</div>
+      <div class="stat-label">Corp Orders${l}</div>
       <div class="stat-value">${corpOrds.length}</div>
       <div class="stat-sub">${corpSell.length} sell · ${corpBuy.length} buy</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Undercut (corp)</div>
+      <div class="stat-label">Undercut${l}</div>
       ${ucHtmlStat}
     </div>
     <div class="stat-card">
-      <div class="stat-label">Total Sell Value</div>
+      <div class="stat-label">Sell Value${l}</div>
       <div class="stat-value gold">${fmtISK(sellVal)}</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Total Buy Volume</div>
+      <div class="stat-label">Buy Volume${l}</div>
       <div class="stat-value blue">${fmtISK(buyVal)}</div>
     </div>
     <div class="stat-card stat-wide">
-      <div class="stat-label">Most Valuable Item (corp sell)</div>
+      <div class="stat-label">Most Valuable Item${l}</div>
       <div class="stat-value gold" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(topItemName)}</div>
       <div class="stat-sub">${fmtISK(topItemVal)} total</div>
     </div>
     <div class="stat-card stat-wide">
-      <div class="stat-label">Most Valuable Order (corp)</div>
+      <div class="stat-label">Most Valuable Order${l}</div>
       <div class="stat-value gold" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(topOrderName)}</div>
       <div class="stat-sub">${fmtISK(topOrderVal)} · ${topOrderSub}</div>
     </div>
@@ -951,7 +952,6 @@ function renderOrders() {
                      ? (locNames[o.location_id] || `Station ${o.location_id}`)
                      : 'Player Structure';
     const isBuy  = o.is_buy_order;
-    const pct    = Math.round((o.volume_remain / o.volume_total) * 100);
     const orderTotal = o.price * o.volume_remain;
 
     const expiresMs   = new Date(o.issued).getTime() + o.duration * 86_400_000;
@@ -991,10 +991,7 @@ function renderOrders() {
         <td>${ucHtml}</td>
         <td class="r price">${fmtISK(o.price)}</td>
         <td class="r">
-          <div class="qty-cell">
-            <div class="vol-track"><div class="vol-fill" style="width:${pct}%"></div></div>
-            <span class="vol-text">${fmtNum(o.volume_remain)}<span style="color:var(--border)"> / </span>${fmtNum(o.volume_total)}</span>
-          </div>
+          <span class="vol-text">${fmtNum(o.volume_remain)}<span style="color:var(--text2)"> / </span>${fmtNum(o.volume_total)}</span>
         </td>
         <td class="r total">${fmtISK(orderTotal)}</td>
         <td class="loc-cell" title="Click to filter to this station" onclick="setLocFilter(${o.location_id})">${escHtml(loc)}</td>
@@ -1098,6 +1095,7 @@ function setLocFilter(locId) {
   // Toggle: clicking the active station clears it
   activeLocFilt = (activeLocFilt === locId) ? null : locId;
   renderLocChip();
+  renderStats();              // update all stat cards to reflect station
   renderStationBreakdown();   // refresh active highlight
   renderOrders();
 }
