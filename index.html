@@ -79,19 +79,6 @@
     }
     .login-card h2 { font-size: 22px; color: var(--gold); margin-bottom: 10px; }
     .login-card > p { color: var(--text2); margin-bottom: 24px; line-height: 1.65; }
-    .setup-note {
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-left: 3px solid var(--gold);
-      border-radius: 4px;
-      padding: 12px 14px;
-      font-size: 13px;
-      color: var(--text2);
-      margin-bottom: 18px;
-      line-height: 1.65;
-    }
-    .setup-note strong { color: var(--text); }
-    .setup-note code { color: var(--gold); font-family: 'Consolas', monospace; font-size: 12px; word-break: break-all; }
     .field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2); margin-bottom: 6px; font-weight: 600; }
     #client-id-input {
       width: 100%;
@@ -328,16 +315,6 @@
     <div class="login-card">
       <h2>EVE Orders Dashboard</h2>
       <p>Monitor your character and corporation market orders. Sign in with your EVE Online account to get started.</p>
-
-      <div class="setup-note">
-        <strong>First-time setup:</strong> You need a free EVE developer application.<br>
-        Register at <code>developers.eveonline.com</code> → Create New Application<br>
-        Add scopes: <code>esi-markets.read_character_orders.v1</code>,
-        <code>esi-markets.read_corporation_orders.v1</code>, and
-        <code>esi-skills.read_skills.v1</code><br>
-        Set the <strong>Callback URL</strong> to exactly:<br>
-        <code id="callback-url-display"></code>
-      </div>
 
       <div class="field-label">Client ID</div>
       <input
@@ -677,7 +654,7 @@ async function loadOrders() {
     try {
       const skillData = await esiGet(`/characters/${charId}/skills/`);
       const sm = {};
-      skillData.skills.forEach(s => { sm[s.skill_id] = s.active_skill_level; });
+      skillData.skills.forEach(s => { sm[s.skill_id] = s.trained_skill_level; });
       charSlotsMax = 5
         + (sm[3443] || 0) *  4   // Trade
         + (sm[3444] || 0) *  8   // Retail
