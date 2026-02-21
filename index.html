@@ -252,10 +252,42 @@
     .vol-fill  { height: 100%; background: var(--blue); border-radius: 2px; }
     .vol-text  { font-size: 12px; color: var(--text2); font-variant-numeric: tabular-nums; }
 
-    .loc-cell { color: var(--text2); max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+    .loc-cell { color: var(--text2); max-width: 200px; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+    .loc-cell:hover { color: var(--blue); text-decoration: underline; }
     .expiry-ok   { color: var(--text2); }
     .expiry-warn { color: var(--orange); }
     .expiry-crit { color: var(--red); }
+
+    /* ── Undercut status ── */
+    .uc-best    { color: var(--green);  font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .uc-cut     { color: var(--red);    font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .uc-loading { color: var(--text2);  font-size: 12px; }
+    .uc-diff    { font-weight: 400; color: var(--red); font-size: 11px; display: block; }
+    .mini-spin  {
+      display: inline-block; width: 10px; height: 10px;
+      border: 2px solid var(--border); border-top-color: var(--text2);
+      border-radius: 50%; animation: spin .8s linear infinite; vertical-align: middle;
+    }
+
+    /* ── Location chip (active station filter) ── */
+    .loc-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(74,158,237,.15); color: var(--blue);
+      border: 1px solid rgba(74,158,237,.4); border-radius: 4px;
+      padding: 4px 10px; font-size: 12px; font-weight: 600;
+    }
+    .loc-chip-x {
+      cursor: pointer; font-size: 14px; line-height: 1;
+      color: var(--text2); background: none; border: none; padding: 0;
+    }
+    .loc-chip-x:hover { color: var(--red); }
+
+    /* ── Active station row ── */
+    .station-table tr.st-active td { background: rgba(74,158,237,.08); color: var(--blue); }
+    .station-table tr.st-active td.st-sell { color: var(--blue); }
+    .station-table tr.st-active td.st-buy  { color: var(--blue); }
+    .station-table tr.st-active td.price   { color: var(--blue); }
+    .station-table tr { cursor: pointer; }
 
     /* ── State messages ── */
     .state-msg { padding: 60px 20px; text-align: center; color: var(--text2); }
@@ -351,6 +383,7 @@
         <button class="filter-btn"           data-sf="personal" onclick="setSrcFilter('personal', this)">Personal</button>
         <button class="filter-btn"           data-sf="corp"     onclick="setSrcFilter('corp',     this)">Corp</button>
       </div>
+      <div id="loc-chip-wrap"></div>
       <button class="btn btn-secondary" id="refresh-btn" onclick="loadOrders()">Refresh</button>
     </div>
 
@@ -365,6 +398,7 @@
           <tr>
             <th onclick="sortBy('item')">    Item       <span id="si-item"></span></th>
             <th onclick="sortBy('type')">    Type       <span id="si-type"></span></th>
+            <th onclick="sortBy('status')">  Status     <span id="si-status"></span></th>
             <th onclick="sortBy('price')" class="r">Unit Price  <span id="si-price"></span></th>
             <th onclick="sortBy('volume')" class="r">Qty         <span id="si-volume"></span></th>
             <th onclick="sortBy('total')" class="r">Order Total <span id="si-total"></span></th>
@@ -424,6 +458,8 @@ let sortDir        = 1;
 let sectionVisible = true;
 let charSlotsUsed  = 0;        // orders placed by this character (personal + corp they placed)
 let charSlotsMax   = 0;        // calculated from trade skills (0 = scope not granted)
+let activeLocFilt  = null;     // location_id (number) or null for all stations
+let undercutStatus = {};       // order_id → { status: 'loading'|'best'|'undercut'|'error', diff: 0 }
 
 // =============================================================
 // PKCE helpers
@@ -606,6 +642,9 @@ async function loadOrders() {
   const btn = document.getElementById('refresh-btn');
   btn.disabled = true;
   corpOrdersWarning = '';
+  undercutStatus = {};
+  activeLocFilt  = null;
+  renderLocChip();
 
   try {
     const charId = localStorage.getItem(K.cid);
@@ -673,6 +712,8 @@ async function loadOrders() {
     renderStats();
     renderStationBreakdown();
     renderOrders();
+    // Kick off undercut checks in the background — re-renders when done
+    loadUndercutStatus(allOrders);
   } catch (e) {
     showMsg(`<div class="err-text">⚠ ${escHtml(e.message)}</div>`);
     console.error(e);
@@ -798,8 +839,9 @@ function renderStationBreakdown() {
                       : 'Player Structure';
     const total   = s.sellVal + s.buyVal;
     const orders  = s.sell + s.buy;
+    const active  = activeLocFilt === parseInt(locId) ? 'st-active' : '';
     return `
-      <tr>
+      <tr class="${active}" onclick="setLocFilter(${locId})" title="Click to filter orders to this station">
         <td class="st-name">${escHtml(name)}</td>
         <td class="r">${orders}</td>
         <td class="r st-sell">${s.sell}</td>
@@ -849,6 +891,9 @@ function renderOrders() {
   if (activeSrcFilt === 'personal') orders = orders.filter(o => o._src === 'personal');
   if (activeSrcFilt === 'corp')     orders = orders.filter(o => o._src === 'corp');
 
+  // Location filter
+  if (activeLocFilt !== null) orders = orders.filter(o => o.location_id === activeLocFilt);
+
   orders = doSort(orders);
 
   if (!orders.length) {
@@ -875,6 +920,20 @@ function renderOrders() {
       ? '<span class="badge badge-corp">CORP</span>'
       : '<span class="badge badge-personal">ME</span>';
 
+    // Undercut status cell
+    const uc = undercutStatus[o.order_id];
+    let ucHtml;
+    if (!uc || uc.status === 'loading') {
+      ucHtml = `<span class="uc-loading"><span class="mini-spin"></span></span>`;
+    } else if (uc.status === 'best') {
+      ucHtml = `<span class="uc-best">● BEST</span>`;
+    } else if (uc.status === 'undercut') {
+      const sign = isBuy ? '+' : '-';
+      ucHtml = `<span class="uc-cut">▼ UNDERCUT<span class="uc-diff">${sign}${fmtISK(uc.diff)}</span></span>`;
+    } else {
+      ucHtml = `<span class="uc-loading">—</span>`;
+    }
+
     return `
       <tr>
         <td>
@@ -886,6 +945,7 @@ function renderOrders() {
           </div>
         </td>
         <td><span class="badge ${isBuy ? 'badge-buy' : 'badge-sell'}">${isBuy ? 'Buy' : 'Sell'}</span></td>
+        <td>${ucHtml}</td>
         <td class="r price">${fmtISK(o.price)}</td>
         <td class="r">
           <div class="qty-cell">
@@ -894,7 +954,7 @@ function renderOrders() {
           </div>
         </td>
         <td class="r total">${fmtISK(orderTotal)}</td>
-        <td class="loc-cell" title="${escHtml(loc)}">${escHtml(loc)}</td>
+        <td class="loc-cell" title="Click to filter to this station" onclick="setLocFilter(${o.location_id})">${escHtml(loc)}</td>
         <td class="${expiryClass}">${expiryText}</td>
       </tr>
     `;
@@ -914,6 +974,10 @@ function doSort(orders) {
     switch (sortCol) {
       case 'item':     av = typeNames[a.type_id] || ''; bv = typeNames[b.type_id] || ''; break;
       case 'type':     av = a.is_buy_order ? 0 : 1;    bv = b.is_buy_order ? 0 : 1;    break;
+      case 'status': {
+        const rank = s => !s ? 2 : s.status === 'undercut' ? 0 : s.status === 'best' ? 1 : 2;
+        av = rank(undercutStatus[a.order_id]); bv = rank(undercutStatus[b.order_id]); break;
+      }
       case 'price':    av = a.price;                   bv = b.price;                   break;
       case 'volume':   av = a.volume_remain;            bv = b.volume_remain;            break;
       case 'total':    av = a.price * a.volume_remain;  bv = b.price * b.volume_remain;  break;
@@ -934,7 +998,7 @@ function sortBy(col) {
   sortDir = sortCol === col ? -sortDir : 1;
   sortCol = col;
 
-  const cols = ['item','type','price','volume','total','location','expiry'];
+  const cols = ['item','type','status','price','volume','total','location','expiry'];
   cols.forEach(c => {
     const ind = document.getElementById(`si-${c}`);
     const th  = ind?.parentElement;
@@ -969,6 +1033,106 @@ function setSrcFilter(filter, btn) {
       filter === 'personal' ? 'f-active-personal' : 'f-active'
     );
   });
+  renderOrders();
+}
+
+// =============================================================
+// Location filter
+// =============================================================
+function setLocFilter(locId) {
+  // Toggle: clicking the active station clears it
+  activeLocFilt = (activeLocFilt === locId) ? null : locId;
+  renderLocChip();
+  renderStationBreakdown();   // refresh active highlight
+  renderOrders();
+}
+
+function renderLocChip() {
+  const wrap = document.getElementById('loc-chip-wrap');
+  if (!wrap) return;
+  if (activeLocFilt === null) {
+    wrap.innerHTML = '';
+    return;
+  }
+  const name = activeLocFilt < 1_000_000_000_000
+    ? (locNames[activeLocFilt] || `Station ${activeLocFilt}`)
+    : 'Player Structure';
+  wrap.innerHTML = `
+    <span class="loc-chip">
+      📍 ${escHtml(name)}
+      <button class="loc-chip-x" onclick="setLocFilter(${activeLocFilt})" title="Clear location filter">×</button>
+    </span>
+  `;
+}
+
+// =============================================================
+// Undercut status
+// =============================================================
+async function fetchAllMarketOrders(regionId, typeId) {
+  const url = `${ESI_BASE}/markets/${regionId}/orders/?type_id=${typeId}&page=`;
+  const resp1 = await fetch(url + '1');
+  if (!resp1.ok) return [];
+  const totalPages = Math.min(parseInt(resp1.headers.get('X-Pages') || '1'), 20);
+  const first = await resp1.json();
+  if (totalPages === 1) return first;
+  const rest = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, i) =>
+      fetch(url + (i + 2)).then(r => r.ok ? r.json() : [])
+    )
+  );
+  return [first, ...rest].flat();
+}
+
+async function loadUndercutStatus(orders) {
+  // Initialise all as loading
+  orders.forEach(o => { undercutStatus[o.order_id] = { status: 'loading', diff: 0 }; });
+  renderOrders();
+
+  // Group by (region_id, type_id) so we fetch each market once
+  const pairs = new Map();
+  orders.forEach(o => {
+    const key = `${o.region_id}:${o.type_id}`;
+    if (!pairs.has(key)) pairs.set(key, []);
+    pairs.get(key).push(o);
+  });
+
+  const ourIds = new Set(orders.map(o => o.order_id));
+
+  await Promise.all([...pairs.entries()].map(async ([key, ourOrders]) => {
+    const [regionId, typeId] = key.split(':');
+    try {
+      const market = await fetchAllMarketOrders(regionId, typeId);
+
+      // Index market orders by location, excluding our own order IDs
+      const byLoc = {};
+      market.forEach(mo => {
+        if (ourIds.has(mo.order_id)) return;   // skip our own
+        const loc = mo.location_id;
+        if (!byLoc[loc]) byLoc[loc] = { sell: [], buy: [] };
+        if (mo.is_buy_order) byLoc[loc].buy.push(mo.price);
+        else                 byLoc[loc].sell.push(mo.price);
+      });
+
+      ourOrders.forEach(o => {
+        const competitors = (byLoc[o.location_id] || { sell: [], buy: [] });
+        if (o.is_buy_order) {
+          const bestOther = competitors.buy.length ? Math.max(...competitors.buy) : -Infinity;
+          undercutStatus[o.order_id] = bestOther > o.price
+            ? { status: 'undercut', diff: bestOther - o.price }
+            : { status: 'best',     diff: 0 };
+        } else {
+          const bestOther = competitors.sell.length ? Math.min(...competitors.sell) : Infinity;
+          undercutStatus[o.order_id] = bestOther < o.price
+            ? { status: 'undercut', diff: o.price - bestOther }
+            : { status: 'best',     diff: 0 };
+        }
+      });
+    } catch (e) {
+      console.warn(`Undercut fetch failed for ${key}:`, e.message);
+      ourOrders.forEach(o => { undercutStatus[o.order_id] = { status: 'error', diff: 0 }; });
+    }
+  }));
+
   renderOrders();
 }
 
