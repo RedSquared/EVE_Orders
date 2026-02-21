@@ -379,7 +379,7 @@
 // CONFIG — paste your EVE application Client ID below, OR
 //          enter it in the text field on the login page.
 // =============================================================
-const HARDCODED_CLIENT_ID = '';
+const HARDCODED_CLIENT_ID = 'a46cb3ebd7d843c7ac95f827a43f5e56';
 
 // =============================================================
 // Constants
@@ -632,8 +632,8 @@ async function loadOrders() {
       const sm = {};
       skillData.skills.forEach(s => { sm[s.skill_id] = s.trained_skill_level; });
       charSlotsMax = 5
-        + (sm[3443]  || 0) *  4   // Trade
-        + (sm[3444]  || 0) *  8   // Retail
+        + (sm[3443] || 0) *  4   // Trade
+        + (sm[3444] || 0) *  8   // Retail
         + (sm[16596] || 0) * 16   // Wholesale
         + (sm[18580] || 0) * 32;  // Tycoon
     } catch (e) {
