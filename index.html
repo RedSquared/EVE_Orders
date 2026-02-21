@@ -199,6 +199,8 @@
     .filter-btn.f-active-buy    { background: rgba(74,158,237,.15); color: var(--blue);   border-color: var(--blue); }
     .filter-btn.f-active-corp   { background: rgba(155,111,212,.15); color: var(--purple); border-color: var(--purple); }
     .filter-btn.f-active-personal { background: rgba(198,162,39,.12); color: var(--gold); border-color: var(--gold); }
+    .filter-btn.f-active-undercut { background: rgba(209,64,64,.15); color: var(--red);   border-color: var(--red); }
+    .filter-btn.f-active-best   { background: rgba(61,186,110,.15); color: var(--green);  border-color: var(--green); }
 
     /* ── Orders table ── */
     .table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; overflow: auto; }
@@ -382,6 +384,10 @@
         <button class="filter-btn f-active"  data-sf="all"      onclick="setSrcFilter('all',      this)">All</button>
         <button class="filter-btn"           data-sf="personal" onclick="setSrcFilter('personal', this)">Personal</button>
         <button class="filter-btn"           data-sf="corp"     onclick="setSrcFilter('corp',     this)">Corp</button>
+        <div class="filter-sep"></div>
+        <button class="filter-btn f-active"  data-uf="all"      onclick="setUcFilter('all',      this)">All</button>
+        <button class="filter-btn"           data-uf="best"     onclick="setUcFilter('best',     this)">Best</button>
+        <button class="filter-btn"           data-uf="undercut" onclick="setUcFilter('undercut', this)">Undercut</button>
       </div>
       <div id="loc-chip-wrap"></div>
       <button class="btn btn-secondary" id="refresh-btn" onclick="loadOrders()">Refresh</button>
@@ -459,6 +465,7 @@ let sectionVisible = true;
 let charSlotsUsed  = 0;        // orders placed by this character (personal + corp they placed)
 let charSlotsMax   = 0;        // calculated from trade skills (0 = scope not granted)
 let activeLocFilt  = null;     // location_id (number) or null for all stations
+let activeUcFilt   = 'all';   // all | best | undercut
 let undercutStatus = {};       // order_id → { status: 'loading'|'best'|'undercut'|'error', diff: 0 }
 
 // =============================================================
@@ -644,7 +651,13 @@ async function loadOrders() {
   corpOrdersWarning = '';
   undercutStatus = {};
   activeLocFilt  = null;
+  activeUcFilt   = 'all';
   renderLocChip();
+  // Reset undercut filter button visually
+  document.querySelectorAll('[data-uf]').forEach(b => {
+    b.className = 'filter-btn';
+    if (b.dataset.uf === 'all') b.classList.add('f-active');
+  });
 
   try {
     const charId = localStorage.getItem(K.cid);
@@ -756,16 +769,27 @@ function renderStats() {
     ? `${fmtNum(topOrder.volume_remain)} × ${fmtISK(topOrder.price)}`
     : '';
 
-  // Order slots
+  // Order slots — personal character level (corp orders you place still consume your slots)
   const slotsRemain = charSlotsMax > 0 ? charSlotsMax - charSlotsUsed : null;
   const slotsPct    = charSlotsMax > 0 ? Math.min(100, Math.round((charSlotsUsed / charSlotsMax) * 100)) : 0;
   const slotFill    = slotsPct >= 90 ? 'crit' : slotsPct >= 70 ? 'warn' : '';
   const slotsHtml   = charSlotsMax > 0
-    ? `<div class="stat-value ${slotsRemain <= 5 ? 'red' : slotsRemain <= 20 ? 'gold' : 'green'}">${charSlotsUsed} <span style="font-size:14px;font-weight:400;color:var(--text2)">/ ${charSlotsMax}</span></div>
-       <div class="stat-sub">${slotsRemain} slots remaining</div>
+    ? `<div class="stat-value ${slotsRemain <= 5 ? 'red' : slotsRemain <= 20 ? 'gold' : 'green'}">${slotsRemain}</div>
+       <div class="stat-sub">${charSlotsUsed} / ${charSlotsMax} used</div>
        <div class="slot-bar"><div class="slot-fill ${slotFill}" style="width:${slotsPct}%"></div></div>`
     : `<div class="stat-value" style="font-size:15px;color:var(--text2)">${charSlotsUsed} used</div>
        <div class="stat-sub" style="color:var(--orange)">Add esi-skills scope to see max</div>`;
+
+  // Undercut summary — corp orders only
+  const ucTotal   = corpOrds.length;
+  const ucCut     = corpOrds.filter(o => undercutStatus[o.order_id]?.status === 'undercut').length;
+  const ucBest    = corpOrds.filter(o => undercutStatus[o.order_id]?.status === 'best').length;
+  const ucPending = corpOrds.some(o => !undercutStatus[o.order_id] || undercutStatus[o.order_id].status === 'loading');
+  const ucPct     = ucTotal > 0 ? Math.round((ucCut / ucTotal) * 100) : 0;
+  const ucHtmlStat = ucPending
+    ? `<div class="stat-value" style="font-size:15px;color:var(--text2)"><span class="mini-spin"></span> checking…</div>`
+    : `<div class="stat-value ${ucCut > 0 ? 'red' : 'green'}">${ucCut} <span style="font-size:14px;font-weight:400;color:var(--text2)">/ ${ucTotal}</span></div>
+       <div class="stat-sub">${ucBest} best · ${ucPct}% undercut</div>`;
 
   const warnHtml = corpOrdersWarning
     ? `<div class="stat-card" style="border-left:3px solid var(--orange);flex-basis:100%">
@@ -776,13 +800,17 @@ function renderStats() {
 
   document.getElementById('stats-bar').innerHTML = `
     <div class="stat-card">
-      <div class="stat-label">Order Slots</div>
+      <div class="stat-label">Personal Slots Free</div>
       ${slotsHtml}
     </div>
     <div class="stat-card">
       <div class="stat-label">Corp Orders</div>
       <div class="stat-value">${corpOrds.length}</div>
       <div class="stat-sub">${corpSell.length} sell · ${corpBuy.length} buy</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Undercut (corp)</div>
+      ${ucHtmlStat}
     </div>
     <div class="stat-card">
       <div class="stat-label">Total Sell Value</div>
@@ -811,10 +839,13 @@ function renderStats() {
 // =============================================================
 function renderStationBreakdown() {
   // Group by location_id
+  const ucDataReady = allOrders.length > 0 &&
+    allOrders.every(o => undercutStatus[o.order_id] && undercutStatus[o.order_id].status !== 'loading');
+
   const stations = {};
   allOrders.forEach(o => {
     const loc = o.location_id;
-    if (!stations[loc]) stations[loc] = { sell: 0, buy: 0, sellVal: 0, buyVal: 0 };
+    if (!stations[loc]) stations[loc] = { sell: 0, buy: 0, sellVal: 0, buyVal: 0, undercut: 0 };
     if (o.is_buy_order) {
       stations[loc].buy++;
       stations[loc].buyVal += o.price * o.volume_remain;
@@ -822,6 +853,7 @@ function renderStationBreakdown() {
       stations[loc].sell++;
       stations[loc].sellVal += o.price * o.volume_remain;
     }
+    if (undercutStatus[o.order_id]?.status === 'undercut') stations[loc].undercut++;
   });
 
   // Sort stations by total sell value desc
@@ -840,6 +872,11 @@ function renderStationBreakdown() {
     const total   = s.sellVal + s.buyVal;
     const orders  = s.sell + s.buy;
     const active  = activeLocFilt === parseInt(locId) ? 'st-active' : '';
+    const ucCell  = ucDataReady
+      ? (s.undercut > 0
+          ? `<span style="color:var(--red);font-weight:700">${s.undercut}</span> / ${orders}`
+          : `<span style="color:var(--green);font-weight:700">0</span> / ${orders}`)
+      : `<span class="uc-loading"><span class="mini-spin"></span></span>`;
     return `
       <tr class="${active}" onclick="setLocFilter(${locId})" title="Click to filter orders to this station">
         <td class="st-name">${escHtml(name)}</td>
@@ -849,6 +886,7 @@ function renderStationBreakdown() {
         <td class="r st-sell">${fmtISK(s.sellVal)}</td>
         <td class="r st-buy">${fmtISK(s.buyVal)}</td>
         <td class="r price">${fmtISK(total)}</td>
+        <td class="r">${ucCell}</td>
       </tr>
     `;
   }).join('');
@@ -864,6 +902,7 @@ function renderStationBreakdown() {
           <th class="r">Sell Value</th>
           <th class="r">Buy Volume</th>
           <th class="r">Combined</th>
+          <th class="r">Undercut</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -893,6 +932,10 @@ function renderOrders() {
 
   // Location filter
   if (activeLocFilt !== null) orders = orders.filter(o => o.location_id === activeLocFilt);
+
+  // Undercut filter (only applies once status is loaded)
+  if (activeUcFilt === 'best')     orders = orders.filter(o => undercutStatus[o.order_id]?.status === 'best');
+  if (activeUcFilt === 'undercut') orders = orders.filter(o => undercutStatus[o.order_id]?.status === 'undercut');
 
   orders = doSort(orders);
 
@@ -1036,6 +1079,18 @@ function setSrcFilter(filter, btn) {
   renderOrders();
 }
 
+function setUcFilter(filter, btn) {
+  activeUcFilt = filter;
+  document.querySelectorAll('[data-uf]').forEach(b => {
+    b.className = 'filter-btn';
+    if (b === btn) b.classList.add(
+      filter === 'undercut' ? 'f-active-undercut' :
+      filter === 'best'     ? 'f-active-best'     : 'f-active'
+    );
+  });
+  renderOrders();
+}
+
 // =============================================================
 // Location filter
 // =============================================================
@@ -1098,6 +1153,9 @@ async function loadUndercutStatus(orders) {
 
   const ourIds = new Set(orders.map(o => o.order_id));
 
+  // Snapshot the orders list at call time so stale refreshes don't clobber new data
+  const ordersSnap = orders;
+
   await Promise.all([...pairs.entries()].map(async ([key, ourOrders]) => {
     const [regionId, typeId] = key.split(':');
     try {
@@ -1133,6 +1191,9 @@ async function loadUndercutStatus(orders) {
     }
   }));
 
+  // Re-render everything so undercut counts appear in stats and station breakdown
+  renderStats();
+  renderStationBreakdown();
   renderOrders();
 }
 
