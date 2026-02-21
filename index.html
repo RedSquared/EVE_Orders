@@ -79,21 +79,7 @@
     }
     .login-card h2 { font-size: 22px; color: var(--gold); margin-bottom: 10px; }
     .login-card > p { color: var(--text2); margin-bottom: 24px; line-height: 1.65; }
-    .field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2); margin-bottom: 6px; font-weight: 600; }
-    #client-id-input {
-      width: 100%;
-      padding: 10px 12px;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--text);
-      font-family: 'Consolas', monospace;
-      font-size: 13px;
-      margin-bottom: 16px;
-      outline: none;
-    }
-    #client-id-input:focus { border-color: var(--blue); }
-    #login-error { color: var(--red); font-size: 13px; margin-bottom: 12px; display: none; }
+#login-error { color: var(--red); font-size: 13px; margin-bottom: 12px; display: none; }
 
     /* ── Dashboard ── */
     #dashboard-view { padding: 20px; max-width: 1500px; margin: 0 auto; }
@@ -316,16 +302,7 @@
       <h2>EVE Orders Dashboard</h2>
       <p>Monitor your character and corporation market orders. Sign in with your EVE Online account to get started.</p>
 
-      <div class="field-label">Client ID</div>
-      <input
-        type="text"
-        id="client-id-input"
-        placeholder="Paste your EVE application Client ID"
-        autocomplete="off"
-        spellcheck="false"
-      >
-
-      <div id="login-error"></div>
+<div id="login-error"></div>
 
       <button class="btn btn-primary" id="login-btn" style="width:100%;padding:12px 0;" onclick="startLogin()">
         Sign In with EVE Online
@@ -469,8 +446,7 @@ async function pkceChallenge(verifier) {
 async function startLogin() {
   const clientId = getClientId();
   if (!clientId) {
-    showLoginError('Please enter your EVE application Client ID.');
-    document.getElementById('client-id-input').focus();
+    showLoginError('No Client ID configured. Set HARDCODED_CLIENT_ID in the source.');
     return;
   }
   localStorage.setItem(K.clientId, clientId);
@@ -649,7 +625,7 @@ async function loadOrders() {
     // placed by this character also consume personal order slots)
 
     // ── Character skills → order slot capacity ─────────────────
-    // Trade:3443 +4/lvl  Retail:3444 +8/lvl  Wholesale:3445 +16/lvl  Tycoon:3446 +32/lvl
+    // Trade:3443 +4/lvl  Retail:3444 +8/lvl  Wholesale:16596 +16/lvl  Tycoon:18580 +32/lvl
     charSlotsMax = 0;
     try {
       const skillData = await esiGet(`/characters/${charId}/skills/`);
@@ -1212,9 +1188,7 @@ function hideLoginError() {
 }
 
 function getClientId() {
-  return (document.getElementById('client-id-input')?.value.trim()) ||
-         localStorage.getItem(K.clientId) ||
-         HARDCODED_CLIENT_ID;
+  return localStorage.getItem(K.clientId) || HARDCODED_CLIENT_ID;
 }
 
 function fmtISK(v) {
@@ -1240,11 +1214,7 @@ async function init() {
   const cbEl = document.getElementById('callback-url-display');
   if (cbEl) cbEl.textContent = REDIRECT_URI;
 
-  const saved = localStorage.getItem(K.clientId) || HARDCODED_CLIENT_ID;
-  const inp   = document.getElementById('client-id-input');
-  if (inp && saved) inp.value = saved;
-
-  const params = new URLSearchParams(window.location.search);
+const params = new URLSearchParams(window.location.search);
   const code   = params.get('code');
   const state  = params.get('state');
   const error  = params.get('error');
