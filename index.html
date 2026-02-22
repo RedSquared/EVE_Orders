@@ -489,7 +489,6 @@ let undercutLastFetched = null;    // Date of last completed undercut check
 let undercutTicks = parseInt(localStorage.getItem('eve_uc_ticks') || '2');  // ticks to move when undercutting
 let undercutScope = localStorage.getItem('eve_uc_scope') || 'station';       // 'station' | 'region'
 let compactMode   = localStorage.getItem('eve_compact') === '1';
-let doneOrders    = new Set();   // order_ids marked done this session
 
 // =============================================================
 // PKCE helpers
@@ -1018,11 +1017,10 @@ function renderOrders() {
       ucHtml = `<span class="uc-loading">—</span>`;
     }
 
-    const isDone  = doneOrders.has(o.order_id);
     const copyBtn = (uc && (uc.status === 'undercut' || uc.status === 'best'))
-      ? `<button id="copy-btn-${o.order_id}" class="copy-btn${isDone ? ' copy-btn-ok' : ''}"
-             title="${isDone ? 'Done — click to unmark' : 'Copy suggested price &amp; open in-game market window'}"
-             onclick="copyUndercut(${o.order_id}, ${o.is_buy_order}, ${o.price}, ${o.type_id})">${isDone ? '✓' : '⎘'}</button>`
+      ? `<button id="copy-btn-${o.order_id}" class="copy-btn"
+             title="Copy suggested price &amp; open in-game market window"
+             onclick="copyUndercut(${o.order_id}, ${o.is_buy_order}, ${o.price}, ${o.type_id})">⎘</button>`
       : '';
 
     return `
@@ -1367,19 +1365,6 @@ function calcUndercutPrice(price, ticks, isBuy) {
 }
 
 function copyUndercut(orderId, isBuy, ourPrice, typeId) {
-  const btn = document.getElementById(`copy-btn-${orderId}`);
-
-  // Second click: unmark and return
-  if (doneOrders.has(orderId)) {
-    doneOrders.delete(orderId);
-    if (btn) {
-      btn.textContent = '⎘';
-      btn.title = 'Copy suggested price & open in-game market window';
-      btn.classList.remove('copy-btn-ok');
-    }
-    return;
-  }
-
   const uc = undercutStatus[orderId];
   if (!uc || uc.status === 'loading') return;
 
@@ -1398,12 +1383,15 @@ function copyUndercut(orderId, isBuy, ourPrice, typeId) {
     document.execCommand('copy'); document.body.removeChild(ta);
   });
 
-  // Mark done immediately — price is on the clipboard regardless of ESI outcome
-  doneOrders.add(orderId);
+  // Show ✓ for ~15 seconds so you can see where you are in the list
+  const btn = document.getElementById(`copy-btn-${orderId}`);
   if (btn) {
     btn.textContent = '✓';
-    btn.title = 'Done — click to unmark';
     btn.classList.add('copy-btn-ok');
+    setTimeout(() => {
+      btn.textContent = '⎘';
+      btn.classList.remove('copy-btn-ok');
+    }, 15000);
   }
 
   // Open in-game market window (best-effort)
@@ -1416,7 +1404,17 @@ async function openMarketWindow(typeId, orderId) {
   } catch (err) {
     if (err.status === 403) {
       const btn = document.getElementById(`copy-btn-${orderId}`);
-      if (btn) btn.title = 'Done (re-login needed to open in-game window) — click to unmark';
+      if (btn) {
+        btn.textContent = '!';
+        btn.classList.remove('copy-btn-ok');
+        btn.classList.add('copy-btn-warn');
+        btn.title = 'Re-login required to enable in-game window (new scope needed)';
+        setTimeout(() => {
+          btn.textContent = '⎘';
+          btn.classList.remove('copy-btn-warn');
+          btn.title = 'Copy suggested price & open in-game market window';
+        }, 15000);
+      }
     }
     // Other errors (EVE client not running, etc.) — fail silently
   }
