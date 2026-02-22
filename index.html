@@ -232,13 +232,24 @@
     .expiry-ok   { color: var(--text2); }
     .expiry-warn { color: var(--orange); }
     .expiry-crit { color: var(--red); }
-    .copy-cell   { width: 28px; text-align: center; padding: 0 4px; }
     .copy-btn    { background: transparent; border: 1px solid var(--border); border-radius: 4px;
                    color: var(--text2); font-size: 14px; cursor: pointer; padding: 1px 5px;
                    line-height: 1.4; transition: color .15s, border-color .15s; }
     .copy-btn:hover  { color: var(--gold); border-color: var(--gold); }
     .copy-btn-ok     { color: var(--green) !important; border-color: var(--green) !important; }
 
+    /* ── Undercut settings bar ── */
+    .settings-bar {
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 10px; flex-wrap: wrap;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 12px;
+    }
+    .settings-label {
+      color: var(--text2); font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700;
+      padding: 0 2px; white-space: nowrap;
+    }
     /* ── Undercut status ── */
     .uc-best    { color: var(--green);  font-size: 12px; font-weight: 700; white-space: nowrap; }
     .uc-cut     { color: var(--red);    font-size: 12px; font-weight: 700; white-space: nowrap; }
@@ -353,6 +364,22 @@
       <button class="btn btn-secondary" id="refresh-btn" onclick="loadOrders()">Refresh</button>
     </div>
 
+    <!-- Undercut settings bar -->
+    <div class="settings-bar">
+      <span class="settings-label">Undercut</span>
+      <div class="filter-sep"></div>
+      <span class="settings-label">Scope:</span>
+      <button class="filter-btn" data-us="station" onclick="setUcScope('station', this)">Station</button>
+      <button class="filter-btn" data-us="region"  onclick="setUcScope('region',  this)">Region</button>
+      <div class="filter-sep"></div>
+      <span class="settings-label">Ticks:</span>
+      <button class="filter-btn" data-ut="1" onclick="setUcTicks(1, this)">1</button>
+      <button class="filter-btn" data-ut="2" onclick="setUcTicks(2, this)">2</button>
+      <button class="filter-btn" data-ut="3" onclick="setUcTicks(3, this)">3</button>
+      <div class="filter-sep"></div>
+      <span class="settings-label" id="uc-timestamp">Market checked: —</span>
+    </div>
+
     <!-- Orders table -->
     <div class="table-wrap">
       <div class="state-msg" id="table-msg">
@@ -370,7 +397,6 @@
             <th onclick="sortBy('total')" class="r">Order Total <span id="si-total"></span></th>
             <th onclick="sortBy('location')">Location   <span id="si-location"></span></th>
             <th onclick="sortBy('expiry')"> Expires     <span id="si-expiry"></span></th>
-            <th></th>
           </tr>
         </thead>
         <tbody id="orders-body"></tbody>
@@ -426,10 +452,13 @@ let sectionVisible = true;
 let charSlotsUsed  = 0;        // orders placed by this character (personal + corp they placed)
 let charSlotsMax   = 0;        // calculated from trade skills (0 = scope not granted)
 let activeLocFilt  = null;     // location_id (number) or null for all stations
-let activeUcFilt   = 'all';   // all | best | undercut
-let undercutStatus = {};       // order_id → { status: 'loading'|'best'|'undercut'|'error', diff: 0, bestCompetitor: null }
+let activeUcFilt       = 'all';   // all | best | undercut
+let undercutStatus     = {};       // order_id → { status: 'loading'|'best'|'undercut'|'error', diff: 0, bestCompetitor: null }
+let marketCache        = {};       // 'regionId:typeId' → { ourOrders, market }
+let undercutLastFetched = null;    // Date of last completed undercut check
 
-const UNDERCUT_TICKS = 2;     // number of 4-sig-fig ticks to move when undercutting / outbidding
+let undercutTicks = parseInt(localStorage.getItem('eve_uc_ticks') || '2');  // ticks to move when undercutting
+let undercutScope = localStorage.getItem('eve_uc_scope') || 'station';       // 'station' | 'region'
 
 // =============================================================
 // PKCE helpers
@@ -610,8 +639,11 @@ async function loadOrders() {
   document.getElementById('station-breakdown-body').innerHTML = '';
   const btn = document.getElementById('refresh-btn');
   btn.disabled = true;
-  corpOrdersWarning = '';
-  undercutStatus = {};
+  corpOrdersWarning   = '';
+  undercutStatus      = {};
+  marketCache         = {};
+  undercutLastFetched = null;
+  renderUcTimestamp();
   activeLocFilt  = null;
   activeUcFilt   = 'all';
   renderLocChip();
@@ -943,6 +975,12 @@ function renderOrders() {
       ucHtml = `<span class="uc-loading">—</span>`;
     }
 
+    const copyBtn = (uc && (uc.status === 'undercut' || uc.status === 'best'))
+      ? `<button id="copy-btn-${o.order_id}" class="copy-btn"
+             title="Copy suggested price to clipboard"
+             onclick="copyUndercut(${o.order_id}, ${o.is_buy_order}, ${o.price})">⎘</button>`
+      : '';
+
     return `
       <tr>
         <td>
@@ -950,7 +988,7 @@ function renderOrders() {
             <img class="item-icon"
                  src="https://images.evetech.net/types/${o.type_id}/icon?size=32"
                  alt="" loading="lazy">
-            <span class="item-name">${escHtml(name)}</span>${srcBadge}
+            <span class="item-name">${escHtml(name)}</span>${srcBadge}${copyBtn}
           </div>
         </td>
         <td><span class="badge ${isBuy ? 'badge-buy' : 'badge-sell'}">${isBuy ? 'Buy' : 'Sell'}</span></td>
@@ -962,13 +1000,6 @@ function renderOrders() {
         <td class="r total">${fmtISK(orderTotal)}</td>
         <td class="loc-cell" title="Click to filter to this station" onclick="setLocFilter(${o.location_id})">${escHtml(loc)}</td>
         <td class="${expiryClass}">${expiryText}</td>
-        <td class="copy-cell">${
-          (uc && (uc.status === 'undercut' || uc.status === 'best'))
-            ? `<button id="copy-btn-${o.order_id}" class="copy-btn"
-                 title="Copy suggested price to clipboard"
-                 onclick="copyUndercut(${o.order_id}, ${o.is_buy_order}, ${o.price})">⎘</button>`
-            : ''
-        }</td>
       </tr>
     `;
   }).join('');
@@ -1124,48 +1155,120 @@ async function loadUndercutStatus(orders) {
 
   const ourIds = new Set(orders.map(o => o.order_id));
 
-  // Snapshot the orders list at call time so stale refreshes don't clobber new data
-  const ordersSnap = orders;
-
   await Promise.all([...pairs.entries()].map(async ([key, ourOrders]) => {
     const [regionId, typeId] = key.split(':');
     try {
       const market = await fetchAllMarketOrders(regionId, typeId);
-
-      // Index market orders by location, excluding our own order IDs
-      const byLoc = {};
-      market.forEach(mo => {
-        if (ourIds.has(mo.order_id)) return;   // skip our own
-        const loc = mo.location_id;
-        if (!byLoc[loc]) byLoc[loc] = { sell: [], buy: [] };
-        if (mo.is_buy_order) byLoc[loc].buy.push(mo.price);
-        else                 byLoc[loc].sell.push(mo.price);
-      });
-
-      ourOrders.forEach(o => {
-        const competitors = (byLoc[o.location_id] || { sell: [], buy: [] });
-        if (o.is_buy_order) {
-          const bestOther = competitors.buy.length ? Math.max(...competitors.buy) : -Infinity;
-          undercutStatus[o.order_id] = bestOther > o.price
-            ? { status: 'undercut', diff: bestOther - o.price, bestCompetitor: bestOther }
-            : { status: 'best',     diff: 0,                   bestCompetitor: null };
-        } else {
-          const bestOther = competitors.sell.length ? Math.min(...competitors.sell) : Infinity;
-          undercutStatus[o.order_id] = bestOther < o.price
-            ? { status: 'undercut', diff: o.price - bestOther, bestCompetitor: bestOther }
-            : { status: 'best',     diff: 0,                   bestCompetitor: null };
-        }
-      });
+      marketCache[key] = { ourOrders, market };
+      applyUndercutForKey(key, ourIds);
     } catch (e) {
       console.warn(`Undercut fetch failed for ${key}:`, e.message);
       ourOrders.forEach(o => { undercutStatus[o.order_id] = { status: 'error', diff: 0 }; });
     }
   }));
 
-  // Re-render everything so undercut counts appear in stats and station breakdown
+  undercutLastFetched = new Date();
+  renderUcTimestamp();
   renderStats();
   renderStationBreakdown();
   renderOrders();
+}
+
+function applyUndercutForKey(key, ourIds) {
+  const cached = marketCache[key];
+  if (!cached) return;
+  const { ourOrders, market } = cached;
+
+  if (undercutScope === 'station') {
+    // Compare per-station: only undercut if a competitor at the SAME station beats you
+    const byLoc = {};
+    market.forEach(mo => {
+      if (ourIds.has(mo.order_id)) return;
+      const loc = mo.location_id;
+      if (!byLoc[loc]) byLoc[loc] = { sell: [], buy: [] };
+      if (mo.is_buy_order) byLoc[loc].buy.push(mo.price);
+      else                 byLoc[loc].sell.push(mo.price);
+    });
+    ourOrders.forEach(o => {
+      const comp = byLoc[o.location_id] || { sell: [], buy: [] };
+      if (o.is_buy_order) {
+        const best = comp.buy.length ? Math.max(...comp.buy) : -Infinity;
+        undercutStatus[o.order_id] = best > o.price
+          ? { status: 'undercut', diff: best - o.price, bestCompetitor: best }
+          : { status: 'best',     diff: 0,              bestCompetitor: null };
+      } else {
+        const best = comp.sell.length ? Math.min(...comp.sell) : Infinity;
+        undercutStatus[o.order_id] = best < o.price
+          ? { status: 'undercut', diff: o.price - best, bestCompetitor: best }
+          : { status: 'best',     diff: 0,              bestCompetitor: null };
+      }
+    });
+  } else {
+    // Region scope: undercut if anyone in the region beats you, regardless of station
+    const otherSell = market.filter(mo => !mo.is_buy_order && !ourIds.has(mo.order_id)).map(mo => mo.price);
+    const otherBuy  = market.filter(mo =>  mo.is_buy_order && !ourIds.has(mo.order_id)).map(mo => mo.price);
+    const regionBestSell = otherSell.length ? Math.min(...otherSell) : Infinity;
+    const regionBestBuy  = otherBuy.length  ? Math.max(...otherBuy)  : -Infinity;
+    ourOrders.forEach(o => {
+      if (o.is_buy_order) {
+        undercutStatus[o.order_id] = regionBestBuy > o.price
+          ? { status: 'undercut', diff: regionBestBuy - o.price, bestCompetitor: regionBestBuy }
+          : { status: 'best',     diff: 0,                       bestCompetitor: null };
+      } else {
+        undercutStatus[o.order_id] = regionBestSell < o.price
+          ? { status: 'undercut', diff: o.price - regionBestSell, bestCompetitor: regionBestSell }
+          : { status: 'best',     diff: 0,                        bestCompetitor: null };
+      }
+    });
+  }
+}
+
+function renderUcTimestamp() {
+  const el = document.getElementById('uc-timestamp');
+  if (!el) return;
+  if (!undercutLastFetched) { el.textContent = 'Market checked: —'; return; }
+  const t  = undercutLastFetched;
+  const hh = String(t.getHours()).padStart(2, '0');
+  const mm = String(t.getMinutes()).padStart(2, '0');
+  const ss = String(t.getSeconds()).padStart(2, '0');
+  el.textContent = `Market checked: ${hh}:${mm}:${ss}`;
+}
+
+function setUcScope(scope, btn) {
+  undercutScope = scope;
+  localStorage.setItem('eve_uc_scope', scope);
+  document.querySelectorAll('[data-us]').forEach(b => {
+    b.className = 'filter-btn';
+    if (b === btn) b.classList.add('f-active');
+  });
+  // Recompute from cached market data — no re-fetch needed
+  if (Object.keys(marketCache).length > 0) {
+    const ourIds = new Set(allOrders.map(o => o.order_id));
+    Object.keys(marketCache).forEach(key => applyUndercutForKey(key, ourIds));
+    renderStats();
+    renderStationBreakdown();
+    renderOrders();
+  }
+}
+
+function setUcTicks(ticks, btn) {
+  undercutTicks = ticks;
+  localStorage.setItem('eve_uc_ticks', ticks);
+  document.querySelectorAll('[data-ut]').forEach(b => {
+    b.className = 'filter-btn';
+    if (b === btn) b.classList.add('f-active');
+  });
+}
+
+function initUcSettings() {
+  document.querySelectorAll('[data-us]').forEach(b => {
+    b.className = 'filter-btn';
+    if (b.dataset.us === undercutScope) b.classList.add('f-active');
+  });
+  document.querySelectorAll('[data-ut]').forEach(b => {
+    b.className = 'filter-btn';
+    if (parseInt(b.dataset.ut) === undercutTicks) b.classList.add('f-active');
+  });
 }
 
 // =============================================================
@@ -1229,7 +1332,7 @@ function copyUndercut(orderId, isBuy, ourPrice) {
   const refPrice    = (uc.status === 'undercut' && uc.bestCompetitor != null)
     ? uc.bestCompetitor
     : ourPrice;
-  const suggested   = calcUndercutPrice(refPrice, UNDERCUT_TICKS, isBuy);
+  const suggested   = calcUndercutPrice(refPrice, undercutTicks, isBuy);
   if (suggested === null) return;
 
   const text = suggested.toFixed(2);
@@ -1306,6 +1409,7 @@ const params = new URLSearchParams(window.location.search);
   if (at && cid) {
     showView('dashboard');
     renderHeaderChar();
+    initUcSettings();
     loadOrders();
   } else {
     showView('login');
