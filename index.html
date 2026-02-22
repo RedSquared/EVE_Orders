@@ -1012,7 +1012,7 @@ function renderOrders() {
       ucHtml = `<span class="uc-best">● BEST</span>`;
     } else if (uc.status === 'undercut') {
       const sign = isBuy ? '+' : '-';
-      ucHtml = `<span class="uc-cut">▼ UNDERCUT<span class="uc-diff">${sign}${fmtISK(uc.diff)}</span></span>`;
+      ucHtml = `<span class="uc-cut">▼ ${sign}${fmtISK(uc.diff)}</span>`;
     } else {
       ucHtml = `<span class="uc-loading">—</span>`;
     }
@@ -1062,8 +1062,9 @@ function doSort(orders) {
       case 'item':     av = typeNames[a.type_id] || ''; bv = typeNames[b.type_id] || ''; break;
       case 'type':     av = a.is_buy_order ? 0 : 1;    bv = b.is_buy_order ? 0 : 1;    break;
       case 'status': {
-        const rank = s => !s ? 2 : s.status === 'undercut' ? 0 : s.status === 'best' ? 1 : 2;
-        av = rank(undercutStatus[a.order_id]); bv = rank(undercutStatus[b.order_id]); break;
+        const val = s => (!s || s.status === 'loading' || s.status === 'error') ? -1
+                       : s.status === 'best' ? 0 : s.diff;
+        av = val(undercutStatus[a.order_id]); bv = val(undercutStatus[b.order_id]); break;
       }
       case 'price':    av = a.price;                   bv = b.price;                   break;
       case 'volume':   av = a.volume_remain;            bv = b.volume_remain;            break;
