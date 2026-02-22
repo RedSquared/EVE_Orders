@@ -253,6 +253,7 @@
                    line-height: 1.4; transition: color .15s, border-color .15s; }
     .copy-btn:hover  { color: var(--gold); border-color: var(--gold); }
     .copy-btn-ok     { color: var(--green) !important; border-color: var(--green) !important; }
+    .copy-btn-warn   { color: var(--gold)  !important; border-color: var(--gold)  !important; }
 
     /* ── Undercut settings bar ── */
     .settings-bar {
@@ -442,6 +443,7 @@ const SCOPES       = [
   'esi-markets.read_character_orders.v1',
   'esi-markets.read_corporation_orders.v1',
   'esi-skills.read_skills.v1',
+  'esi-ui.open_window.v1',
 ].join(' ');
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 
@@ -626,6 +628,20 @@ async function esiGet(path) {
   });
   if (!resp.ok) throw new Error(`ESI ${path} → ${resp.status} ${resp.statusText}`);
   return resp.json();
+}
+
+async function esiPost(path) {
+  const token = await getToken();
+  const resp  = await fetch(`${ESI_BASE}${path}`, {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  // 204 = success (no body); surface scope errors so caller can handle them
+  if (!resp.ok) {
+    const err = new Error(`ESI ${path} → ${resp.status} ${resp.statusText}`);
+    err.status = resp.status;
+    throw err;
+  }
 }
 
 async function resolveNames(ids) {
@@ -994,8 +1010,8 @@ function renderOrders() {
 
     const copyBtn = (uc && (uc.status === 'undercut' || uc.status === 'best'))
       ? `<button id="copy-btn-${o.order_id}" class="copy-btn"
-             title="Copy suggested price to clipboard"
-             onclick="copyUndercut(${o.order_id}, ${o.is_buy_order}, ${o.price})">⎘</button>`
+             title="Copy suggested price &amp; open in-game market window"
+             onclick="copyUndercut(${o.order_id}, ${o.is_buy_order}, ${o.price}, ${o.type_id})">⎘</button>`
       : '';
 
     return `
@@ -1326,35 +1342,60 @@ function calcUndercutPrice(price, ticks, isBuy) {
   return Math.round(adjusted * scale * 100) / 100;
 }
 
-function copyUndercut(orderId, isBuy, ourPrice) {
+function copyUndercut(orderId, isBuy, ourPrice, typeId) {
   const uc  = undercutStatus[orderId];
   if (!uc || uc.status === 'loading') return;
 
-  const refPrice    = (uc.status === 'undercut' && uc.bestCompetitor != null)
+  const refPrice  = (uc.status === 'undercut' && uc.bestCompetitor != null)
     ? uc.bestCompetitor
     : ourPrice;
-  const suggested   = calcUndercutPrice(refPrice, undercutTicks, isBuy);
+  const suggested = calcUndercutPrice(refPrice, undercutTicks, isBuy);
   if (suggested === null) return;
 
   const text = suggested.toFixed(2);
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById(`copy-btn-${orderId}`);
-    if (!btn) return;
-    const orig = btn.textContent;
-    btn.textContent = '✓';
-    btn.classList.add('copy-btn-ok');
-    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copy-btn-ok'); }, 1500);
-  }).catch(() => {
-    // Fallback for environments without clipboard API
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity  = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-  });
+
+  // Copy price to clipboard
+  const doCopy = () => {
+    navigator.clipboard.writeText(text).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+    });
+  };
+  doCopy();
+
+  // Open in-game market window for this item
+  openMarketWindow(typeId, orderId);
+}
+
+async function openMarketWindow(typeId, orderId) {
+  const btn = document.getElementById(`copy-btn-${orderId}`);
+  try {
+    await esiPost(`/ui/openwindow/marketdetails/?type_id=${typeId}`);
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = '✓';
+      btn.classList.add('copy-btn-ok');
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copy-btn-ok'); }, 1500);
+    }
+  } catch (err) {
+    if (err.status === 403) {
+      // Scope not yet granted — prompt re-login
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '!';
+        btn.title = 'Re-login required to enable in-game window (new scope needed)';
+        btn.classList.add('copy-btn-warn');
+        setTimeout(() => {
+          btn.textContent = orig;
+          btn.title = 'Copy suggested price & open in-game market window';
+          btn.classList.remove('copy-btn-warn');
+        }, 3000);
+      }
+    }
+    // Other errors (EVE client not running, etc.) — fail silently
+  }
 }
 
 function fmtISK(v) {
