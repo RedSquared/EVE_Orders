@@ -155,6 +155,22 @@
     .filter-group { display: flex; gap: 4px; align-items: center; }
     .filter-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
 
+    .filter-group select {
+      background: var(--bg2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 4px; padding: 5px 8px; font-size: 12px; cursor: pointer;
+      font-family: inherit;
+    }
+    .filter-group select:hover { border-color: var(--text2); }
+
+    .ticks-input {
+      background: var(--bg2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 4px; padding: 4px 6px; font-size: 12px; width: 52px;
+      text-align: center; font-family: inherit;
+    }
+    .ticks-input:hover { border-color: var(--text2); }
+
+    .copy-col { width: 32px; text-align: center; padding: 0 4px; }
+
     .filter-btn {
       padding: 5px 12px;
       border: 1px solid var(--border);
@@ -348,17 +364,22 @@
     <div class="toolbar">
       <span class="toolbar-title">Market Orders</span>
       <div class="filter-group">
-        <button class="filter-btn f-active"  data-tf="all"  onclick="setTypeFilter('all',  this)">All</button>
-        <button class="filter-btn"           data-tf="sell" onclick="setTypeFilter('sell', this)">Sell</button>
-        <button class="filter-btn"           data-tf="buy"  onclick="setTypeFilter('buy',  this)">Buy</button>
-        <div class="filter-sep"></div>
-        <button class="filter-btn f-active"  data-sf="all"      onclick="setSrcFilter('all',      this)">All</button>
-        <button class="filter-btn"           data-sf="personal" onclick="setSrcFilter('personal', this)">Personal</button>
-        <button class="filter-btn"           data-sf="corp"     onclick="setSrcFilter('corp',     this)">Corp</button>
-        <div class="filter-sep"></div>
-        <button class="filter-btn f-active"  data-uf="all"      onclick="setUcFilter('all',      this)">All</button>
-        <button class="filter-btn"           data-uf="best"     onclick="setUcFilter('best',     this)">Best</button>
-        <button class="filter-btn"           data-uf="undercut" onclick="setUcFilter('undercut', this)">Undercut</button>
+        <select id="type-filter" onchange="setTypeFilter(this.value)">
+          <option value="all">All Types</option>
+          <option value="sell">Sell</option>
+          <option value="buy">Buy</option>
+        </select>
+        <select id="src-filter" onchange="setSrcFilter(this.value)">
+          <option value="all">All Sources</option>
+          <option value="personal">Personal</option>
+          <option value="corp">Corp</option>
+        </select>
+        <select id="uc-filter" onchange="setUcFilter(this.value)">
+          <option value="all">All Status</option>
+          <option value="best">Best Price</option>
+          <option value="undercut">Undercut</option>
+        </select>
+        <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
       </div>
       <div id="loc-chip-wrap"></div>
       <button class="btn btn-secondary" id="refresh-btn" onclick="loadOrders()">Refresh</button>
@@ -373,11 +394,8 @@
       <button class="filter-btn" data-us="region"  onclick="setUcScope('region',  this)">Region</button>
       <div class="filter-sep"></div>
       <span class="settings-label">Ticks:</span>
-      <button class="filter-btn" data-ut="1" onclick="setUcTicks(1, this)">1</button>
-      <button class="filter-btn" data-ut="2" onclick="setUcTicks(2, this)">2</button>
-      <button class="filter-btn" data-ut="3" onclick="setUcTicks(3, this)">3</button>
-      <div class="filter-sep"></div>
-      <span class="settings-label" id="uc-timestamp">Market checked: —</span>
+      <input type="number" id="uc-ticks-input" class="ticks-input" min="1" step="1" value="2" onchange="setUcTicks(+this.value)">
+      <span class="settings-label" id="uc-timestamp" style="margin-left:auto">Market checked: —</span>
     </div>
 
     <!-- Orders table -->
@@ -389,6 +407,7 @@
       <table id="orders-table" style="display:none">
         <thead>
           <tr>
+            <th class="copy-col"></th>
             <th onclick="sortBy('item')">    Item       <span id="si-item"></span></th>
             <th onclick="sortBy('type')">    Type       <span id="si-type"></span></th>
             <th onclick="sortBy('status')">  Status     <span id="si-status"></span></th>
@@ -647,11 +666,9 @@ async function loadOrders() {
   activeLocFilt  = null;
   activeUcFilt   = 'all';
   renderLocChip();
-  // Reset undercut filter button visually
-  document.querySelectorAll('[data-uf]').forEach(b => {
-    b.className = 'filter-btn';
-    if (b.dataset.uf === 'all') b.classList.add('f-active');
-  });
+  // Reset undercut filter dropdown visually
+  const ufEl = document.getElementById('uc-filter');
+  if (ufEl) ufEl.value = 'all';
 
   try {
     const charId = localStorage.getItem(K.cid);
@@ -983,12 +1000,13 @@ function renderOrders() {
 
     return `
       <tr>
+        <td class="copy-col">${copyBtn}</td>
         <td>
           <div class="item-cell">
             <img class="item-icon"
                  src="https://images.evetech.net/types/${o.type_id}/icon?size=32"
                  alt="" loading="lazy">
-            <span class="item-name">${escHtml(name)}</span>${srcBadge}${copyBtn}
+            <span class="item-name">${escHtml(name)}</span>${srcBadge}
           </div>
         </td>
         <td><span class="badge ${isBuy ? 'badge-buy' : 'badge-sell'}">${isBuy ? 'Buy' : 'Sell'}</span></td>
@@ -1056,39 +1074,28 @@ function sortBy(col) {
 // =============================================================
 // Filters
 // =============================================================
-function setTypeFilter(filter, btn) {
+function setTypeFilter(filter) {
   activeTypeFilt = filter;
-  document.querySelectorAll('[data-tf]').forEach(b => {
-    b.className = 'filter-btn';
-    if (b === btn) b.classList.add(
-      filter === 'sell' ? 'f-active-sell' :
-      filter === 'buy'  ? 'f-active-buy'  : 'f-active'
-    );
-  });
   renderOrders();
 }
 
-function setSrcFilter(filter, btn) {
+function setSrcFilter(filter) {
   activeSrcFilt = filter;
-  document.querySelectorAll('[data-sf]').forEach(b => {
-    b.className = 'filter-btn';
-    if (b === btn) b.classList.add(
-      filter === 'corp'     ? 'f-active-corp'     :
-      filter === 'personal' ? 'f-active-personal' : 'f-active'
-    );
-  });
   renderOrders();
 }
 
-function setUcFilter(filter, btn) {
+function setUcFilter(filter) {
   activeUcFilt = filter;
-  document.querySelectorAll('[data-uf]').forEach(b => {
-    b.className = 'filter-btn';
-    if (b === btn) b.classList.add(
-      filter === 'undercut' ? 'f-active-undercut' :
-      filter === 'best'     ? 'f-active-best'     : 'f-active'
-    );
-  });
+  renderOrders();
+}
+
+function resetFilters() {
+  activeTypeFilt = 'all';
+  activeSrcFilt  = 'all';
+  activeUcFilt   = 'all';
+  document.getElementById('type-filter').value = 'all';
+  document.getElementById('src-filter').value  = 'all';
+  document.getElementById('uc-filter').value   = 'all';
   renderOrders();
 }
 
@@ -1251,13 +1258,9 @@ function setUcScope(scope, btn) {
   }
 }
 
-function setUcTicks(ticks, btn) {
-  undercutTicks = ticks;
-  localStorage.setItem('eve_uc_ticks', ticks);
-  document.querySelectorAll('[data-ut]').forEach(b => {
-    b.className = 'filter-btn';
-    if (b === btn) b.classList.add('f-active');
-  });
+function setUcTicks(ticks) {
+  undercutTicks = Math.max(1, ticks || 1);
+  localStorage.setItem('eve_uc_ticks', undercutTicks);
 }
 
 function initUcSettings() {
@@ -1265,10 +1268,8 @@ function initUcSettings() {
     b.className = 'filter-btn';
     if (b.dataset.us === undercutScope) b.classList.add('f-active');
   });
-  document.querySelectorAll('[data-ut]').forEach(b => {
-    b.className = 'filter-btn';
-    if (parseInt(b.dataset.ut) === undercutTicks) b.classList.add('f-active');
-  });
+  const ti = document.getElementById('uc-ticks-input');
+  if (ti) ti.value = undercutTicks;
 }
 
 // =============================================================
