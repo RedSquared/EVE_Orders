@@ -232,7 +232,6 @@
     .expiry-ok   { color: var(--text2); }
     .expiry-warn { color: var(--orange); }
     .expiry-crit { color: var(--red); }
-    .copy-cell   { width: 28px; text-align: center; padding: 0 4px; }
     .copy-btn    { background: transparent; border: 1px solid var(--border); border-radius: 4px;
                    color: var(--text2); font-size: 14px; cursor: pointer; padding: 1px 5px;
                    line-height: 1.4; transition: color .15s, border-color .15s; }
@@ -251,8 +250,6 @@
       text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700;
       padding: 0 2px; white-space: nowrap;
     }
-    .uc-status-mini { margin-top: 3px; line-height: 1.2; }
-
     /* ── Undercut status ── */
     .uc-best    { color: var(--green);  font-size: 12px; font-weight: 700; white-space: nowrap; }
     .uc-cut     { color: var(--red);    font-size: 12px; font-weight: 700; white-space: nowrap; }
@@ -394,12 +391,12 @@
           <tr>
             <th onclick="sortBy('item')">    Item       <span id="si-item"></span></th>
             <th onclick="sortBy('type')">    Type       <span id="si-type"></span></th>
+            <th onclick="sortBy('status')">  Status     <span id="si-status"></span></th>
             <th onclick="sortBy('price')" class="r">Unit Price  <span id="si-price"></span></th>
             <th onclick="sortBy('volume')" class="r">Qty         <span id="si-volume"></span></th>
             <th onclick="sortBy('total')" class="r">Order Total <span id="si-total"></span></th>
             <th onclick="sortBy('location')">Location   <span id="si-location"></span></th>
             <th onclick="sortBy('expiry')"> Expires     <span id="si-expiry"></span></th>
-            <th></th>
           </tr>
         </thead>
         <tbody id="orders-body"></tbody>
@@ -978,6 +975,12 @@ function renderOrders() {
       ucHtml = `<span class="uc-loading">—</span>`;
     }
 
+    const copyBtn = (uc && (uc.status === 'undercut' || uc.status === 'best'))
+      ? `<button id="copy-btn-${o.order_id}" class="copy-btn"
+             title="Copy suggested price to clipboard"
+             onclick="copyUndercut(${o.order_id}, ${o.is_buy_order}, ${o.price})">⎘</button>`
+      : '';
+
     return `
       <tr>
         <td>
@@ -985,13 +988,11 @@ function renderOrders() {
             <img class="item-icon"
                  src="https://images.evetech.net/types/${o.type_id}/icon?size=32"
                  alt="" loading="lazy">
-            <div>
-              <div style="display:flex;align-items:center;gap:4px"><span class="item-name">${escHtml(name)}</span>${srcBadge}</div>
-              <div class="uc-status-mini">${ucHtml}</div>
-            </div>
+            <span class="item-name">${escHtml(name)}</span>${srcBadge}${copyBtn}
           </div>
         </td>
         <td><span class="badge ${isBuy ? 'badge-buy' : 'badge-sell'}">${isBuy ? 'Buy' : 'Sell'}</span></td>
+        <td>${ucHtml}</td>
         <td class="r price">${fmtISK(o.price)}</td>
         <td class="r">
           <span class="vol-text">${fmtNum(o.volume_remain)}<span style="color:var(--text2)"> / </span>${fmtNum(o.volume_total)}</span>
@@ -999,13 +1000,6 @@ function renderOrders() {
         <td class="r total">${fmtISK(orderTotal)}</td>
         <td class="loc-cell" title="Click to filter to this station" onclick="setLocFilter(${o.location_id})">${escHtml(loc)}</td>
         <td class="${expiryClass}">${expiryText}</td>
-        <td class="copy-cell">${
-          (uc && (uc.status === 'undercut' || uc.status === 'best'))
-            ? `<button id="copy-btn-${o.order_id}" class="copy-btn"
-                 title="Copy suggested price to clipboard"
-                 onclick="copyUndercut(${o.order_id}, ${o.is_buy_order}, ${o.price})">⎘</button>`
-            : ''
-        }</td>
       </tr>
     `;
   }).join('');
@@ -1048,7 +1042,7 @@ function sortBy(col) {
   sortDir = sortCol === col ? -sortDir : 1;
   sortCol = col;
 
-  const cols = ['item','type','price','volume','total','location','expiry'];
+  const cols = ['item','type','status','price','volume','total','location','expiry'];
   cols.forEach(c => {
     const ind = document.getElementById(`si-${c}`);
     const th  = ind?.parentElement;
