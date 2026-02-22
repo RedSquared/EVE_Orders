@@ -255,6 +255,13 @@
     .copy-btn-ok     { color: var(--green) !important; border-color: var(--green) !important; }
     .copy-btn-warn   { color: var(--gold)  !important; border-color: var(--gold)  !important; }
 
+    /* ── Compact mode ── */
+    .btn-active { background: var(--bg3) !important; color: var(--text) !important; border-color: var(--text2) !important; }
+    #orders-table.compact thead th { padding: 5px 14px; }
+    #orders-table.compact td       { padding: 3px 14px; }
+    #orders-table.compact .item-icon { display: none; }
+    #orders-table.compact .item-cell { gap: 6px; }
+
     /* ── Undercut settings bar ── */
     .settings-bar {
       display: flex; align-items: center; gap: 6px;
@@ -383,6 +390,7 @@
         <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
       </div>
       <div id="loc-chip-wrap"></div>
+      <button class="btn btn-secondary" id="compact-btn" onclick="toggleCompact()">Compact</button>
       <button class="btn btn-secondary" id="refresh-btn" onclick="loadOrders()">Refresh</button>
     </div>
 
@@ -480,6 +488,7 @@ let undercutLastFetched = null;    // Date of last completed undercut check
 
 let undercutTicks = parseInt(localStorage.getItem('eve_uc_ticks') || '2');  // ticks to move when undercutting
 let undercutScope = localStorage.getItem('eve_uc_scope') || 'station';       // 'station' | 'region'
+let compactMode   = localStorage.getItem('eve_compact') === '1';
 
 // =============================================================
 // PKCE helpers
@@ -1105,6 +1114,19 @@ function setUcFilter(filter) {
   renderOrders();
 }
 
+function toggleCompact() {
+  compactMode = !compactMode;
+  localStorage.setItem('eve_compact', compactMode ? '1' : '0');
+  applyCompact();
+}
+
+function applyCompact() {
+  const tbl = document.getElementById('orders-table');
+  const btn = document.getElementById('compact-btn');
+  if (tbl) tbl.classList.toggle('compact', compactMode);
+  if (btn) btn.classList.toggle('btn-active', compactMode);
+}
+
 function resetFilters() {
   activeTypeFilt = 'all';
   activeSrcFilt  = 'all';
@@ -1343,55 +1365,55 @@ function calcUndercutPrice(price, ticks, isBuy) {
 }
 
 function copyUndercut(orderId, isBuy, ourPrice, typeId) {
-  const uc  = undercutStatus[orderId];
+  const uc = undercutStatus[orderId];
   if (!uc || uc.status === 'loading') return;
 
   const refPrice  = (uc.status === 'undercut' && uc.bestCompetitor != null)
-    ? uc.bestCompetitor
-    : ourPrice;
+    ? uc.bestCompetitor : ourPrice;
   const suggested = calcUndercutPrice(refPrice, undercutTicks, isBuy);
   if (suggested === null) return;
 
   const text = suggested.toFixed(2);
 
   // Copy price to clipboard
-  const doCopy = () => {
-    navigator.clipboard.writeText(text).catch(() => {
-      const ta = document.createElement('textarea');
-      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select();
-      document.execCommand('copy'); document.body.removeChild(ta);
-    });
-  };
-  doCopy();
+  navigator.clipboard.writeText(text).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  });
 
-  // Open in-game market window for this item
+  // Show ✓ for ~15 seconds so you can see where you are in the list
+  const btn = document.getElementById(`copy-btn-${orderId}`);
+  if (btn) {
+    btn.textContent = '✓';
+    btn.classList.add('copy-btn-ok');
+    setTimeout(() => {
+      btn.textContent = '⎘';
+      btn.classList.remove('copy-btn-ok');
+    }, 15000);
+  }
+
+  // Open in-game market window (best-effort)
   openMarketWindow(typeId, orderId);
 }
 
 async function openMarketWindow(typeId, orderId) {
-  const btn = document.getElementById(`copy-btn-${orderId}`);
   try {
     await esiPost(`/ui/openwindow/marketdetails/?type_id=${typeId}`);
-    if (btn) {
-      const orig = btn.textContent;
-      btn.textContent = '✓';
-      btn.classList.add('copy-btn-ok');
-      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copy-btn-ok'); }, 1500);
-    }
   } catch (err) {
     if (err.status === 403) {
-      // Scope not yet granted — prompt re-login
+      const btn = document.getElementById(`copy-btn-${orderId}`);
       if (btn) {
-        const orig = btn.textContent;
         btn.textContent = '!';
-        btn.title = 'Re-login required to enable in-game window (new scope needed)';
+        btn.classList.remove('copy-btn-ok');
         btn.classList.add('copy-btn-warn');
+        btn.title = 'Re-login required to enable in-game window (new scope needed)';
         setTimeout(() => {
-          btn.textContent = orig;
-          btn.title = 'Copy suggested price & open in-game market window';
+          btn.textContent = '⎘';
           btn.classList.remove('copy-btn-warn');
-        }, 3000);
+          btn.title = 'Copy suggested price & open in-game market window';
+        }, 15000);
       }
     }
     // Other errors (EVE client not running, etc.) — fail silently
@@ -1452,6 +1474,7 @@ const params = new URLSearchParams(window.location.search);
     showView('dashboard');
     renderHeaderChar();
     initUcSettings();
+    applyCompact();
     loadOrders();
   } else {
     showView('login');
