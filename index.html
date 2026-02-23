@@ -219,7 +219,8 @@
 
     .item-cell { display: flex; align-items: center; gap: 10px; }
     .item-icon { width: 32px; height: 32px; border-radius: 3px; background: var(--bg3); flex-shrink: 0; }
-    .item-name { font-weight: 500; }
+    .item-name { font-weight: 500; color: var(--text); text-decoration: none; }
+    .item-name:hover { color: var(--blue); text-decoration: underline; }
 
     .badge {
       display: inline-block;
@@ -1031,7 +1032,7 @@ function renderOrders() {
             <img class="item-icon"
                  src="https://images.evetech.net/types/${o.type_id}/icon?size=32"
                  alt="" loading="lazy">
-            <span class="item-name">${escHtml(name)}</span>${srcBadge}
+            <a class="item-name" href="https://evetycoon.com/market/${o.type_id}" target="_blank" rel="noopener noreferrer">${escHtml(name)}</a>${srcBadge}
           </div>
         </td>
         <td><span class="badge ${isBuy ? 'badge-buy' : 'badge-sell'}">${isBuy ? 'Buy' : 'Sell'}</span></td>
