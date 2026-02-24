@@ -1238,15 +1238,15 @@ function renderStats() {
   const sellVal  = scopeAll.filter(o => !o.is_buy_order).reduce((s, o) => s + o.price * o.volume_remain, 0);
   const buyVal   = scopeAll.filter(o =>  o.is_buy_order).reduce((s, o) => s + o.price * o.volume_remain, 0);
 
-  // Most valuable item — corp sell orders in scope, ranked by highest unit price
+  // Most valuable item — all sell orders in scope, ranked by highest unit price
   const byItem = {};
-  corpSell.forEach(o => { if (!byItem[o.type_id] || o.price > byItem[o.type_id]) byItem[o.type_id] = o.price; });
+  scopeAll.filter(o => !o.is_buy_order).forEach(o => { if (!byItem[o.type_id] || o.price > byItem[o.type_id]) byItem[o.type_id] = o.price; });
   const topItemEntry = Object.entries(byItem).sort((a, b) => b[1] - a[1])[0];
   const topItemName  = topItemEntry ? (typeNames[topItemEntry[0]] || `Type ${topItemEntry[0]}`) : '—';
   const topItemVal   = topItemEntry ? topItemEntry[1] : 0;
 
-  // Most valuable single order — corp orders in scope
-  const topOrder    = corpOrds.reduce((best, o) =>
+  // Most valuable single order — all orders in scope
+  const topOrder    = scopeAll.reduce((best, o) =>
     (o.price * o.volume_remain) > (best ? best.price * best.volume_remain : 0) ? o : best, null);
   const topOrderName = topOrder ? (typeNames[topOrder.type_id] || `Type ${topOrder.type_id}`) : '—';
   const topOrderVal  = topOrder ? topOrder.price * topOrder.volume_remain : 0;
@@ -1305,18 +1305,16 @@ function renderStats() {
       <div class="stat-label">Buy Volume${l}</div>
       <div class="stat-value blue">${fmtISK(buyVal)}</div>
     </div>
-    ${showCorp ? `
-    <div class="stat-card stat-wide" title="The corp sell item with the highest unit price.">
+    <div class="stat-card stat-wide" title="Your sell order with the highest unit price across all your orders.">
       <div class="stat-label">Most Valuable Item${l}</div>
       <div class="stat-value gold" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(topItemName)}</div>
       <div class="stat-sub">${fmtISK(topItemVal)} / unit</div>
     </div>
-    <div class="stat-card stat-wide" title="The single corp order with the highest total value (price × remaining qty).">
+    <div class="stat-card stat-wide" title="Your single order with the highest total value (price × remaining qty) across all your orders.">
       <div class="stat-label">Most Valuable Order${l}</div>
       <div class="stat-value gold" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(topOrderName)}</div>
       <div class="stat-sub">${fmtISK(topOrderVal)} · ${topOrderSub}</div>
     </div>
-    ` : ''}
     ${warnHtml}
   `;
 }

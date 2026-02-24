@@ -70,8 +70,8 @@ Each card shows a key metric. Hover any card for a tooltip explaining it.
 | **Undercut** | How many of your active orders have been undercut by a competitor. Green = all best price, red = undercut orders exist. Counts personal orders for everyone; also includes corp orders if you have the corp role. |
 | **Sell Value** | Total ISK value of all active sell orders (price × remaining quantity). |
 | **Buy Volume** | Total ISK committed to active buy orders (price × remaining quantity). |
-| **Most Valuable Item** | The corp sell item with the highest unit price. |
-| **Most Valuable Order** | The single corp order with the highest total value. |
+| **Most Valuable Item** | Your sell item with the highest unit price across all your orders (personal + corp). |
+| **Most Valuable Order** | Your single order with the highest total value (price × remaining qty) across all your orders. |
 
 When a **station filter** is active (see [Filters](#filters)), all cards except Personal Slots react to it and show figures for that station only.
 
