@@ -642,7 +642,7 @@
       <p>Once logged in you will see three sections:</p>
       <ul>
         <li><strong>Wallet Bar</strong> — Your personal and corp ISK balances. Use the division selector on the corp wallet to pick which wallet to display.</li>
-        <li><strong>Stats Bar</strong> — At-a-glance numbers: free order slots, corp order counts, undercut status, sell/buy values, and top items. Hover any card for a description.</li>
+        <li><strong>Stats Bar</strong> — At-a-glance numbers: free order slots, undercut status (always visible), corp order counts (if you have the role), sell/buy values, and top items. Hover any card for a description.</li>
         <li><strong>Station Breakdown</strong> — Your orders grouped by station with sell/buy counts and undercut flags. Click the header to collapse.</li>
         <li><strong>Market Orders Table</strong> — Every active order with full detail. Click any station row above to filter the table to that station.</li>
       </ul>
@@ -1263,11 +1263,11 @@ function renderStats() {
     : `<div class="stat-value" style="font-size:15px;color:var(--text2)">${charSlotsUsed} used</div>
        <div class="stat-sub" style="color:var(--orange)">Add esi-skills scope to see max</div>`;
 
-  // Undercut — corp orders in scope
-  const ucTotal   = corpOrds.length;
-  const ucCut     = corpOrds.filter(o => undercutStatus[o.order_id]?.status === 'undercut').length;
-  const ucBest    = corpOrds.filter(o => undercutStatus[o.order_id]?.status === 'best').length;
-  const ucPending = corpOrds.some(o => !undercutStatus[o.order_id] || undercutStatus[o.order_id].status === 'loading');
+  // Undercut — all orders in scope (personal + corp)
+  const ucTotal   = scopeAll.length;
+  const ucCut     = scopeAll.filter(o => undercutStatus[o.order_id]?.status === 'undercut').length;
+  const ucBest    = scopeAll.filter(o => undercutStatus[o.order_id]?.status === 'best').length;
+  const ucPending = scopeAll.some(o => !undercutStatus[o.order_id] || undercutStatus[o.order_id].status === 'loading');
   const ucPct     = ucTotal > 0 ? Math.round((ucCut / ucTotal) * 100) : 0;
   const ucHtmlStat = ucPending
     ? `<div class="stat-value" style="font-size:15px;color:var(--text2)"><span class="mini-spin"></span> checking…</div>`
@@ -1292,11 +1292,11 @@ function renderStats() {
       <div class="stat-label">Corp Orders${l}</div>
       <div class="stat-value">${corpOrds.length}</div>
       <div class="stat-sub">${corpSell.length} sell · ${corpBuy.length} buy</div>
-    </div>
-    <div class="stat-card" title="How many corp orders have been undercut by a competitor. Red = undercut, green = best price.">
+    </div>` : ''}
+    <div class="stat-card" title="How many of your active orders have been undercut by a competitor. Red = undercut, green = all best price.">
       <div class="stat-label">Undercut${l}</div>
       ${ucHtmlStat}
-    </div>` : ''}
+    </div>
     <div class="stat-card" title="Total ISK value of all active sell orders (price × remaining quantity).">
       <div class="stat-label">Sell Value${l}</div>
       <div class="stat-value gold">${fmtISK(sellVal)}</div>

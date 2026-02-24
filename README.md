@@ -67,7 +67,7 @@ Each card shows a key metric. Hover any card for a tooltip explaining it.
 |------|-------------|
 | **Personal Slots Free** | How many more orders you can place. Calculated from your Trade skills (Trade, Retail, Wholesale, Tycoon). Turns orange above 70% usage, red above 90%. Corp orders *you* placed also consume your personal slots. |
 | **Corp Orders** | Count of active corp orders visible to your character, split by sell and buy. Hidden if you lack corp roles. |
-| **Undercut** | How many corp orders have been undercut by a competitor. Green = all best price, red = undercut orders exist. Hidden if you lack corp roles. |
+| **Undercut** | How many of your active orders have been undercut by a competitor. Green = all best price, red = undercut orders exist. Counts personal orders for everyone; also includes corp orders if you have the corp role. |
 | **Sell Value** | Total ISK value of all active sell orders (price × remaining quantity). |
 | **Buy Volume** | Total ISK committed to active buy orders (price × remaining quantity). |
 | **Most Valuable Item** | The corp sell item with the highest unit price. |
