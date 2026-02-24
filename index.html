@@ -327,6 +327,61 @@
       .stat-card { min-width: 100px; }
       .stat-card.stat-wide { min-width: 150px; }
     }
+
+    /* ── Account switcher dropdown ── */
+    .acct-switcher { position: relative; display: flex; align-items: center; gap: 8px; }
+    .acct-chevron  { font-size: 11px; padding: 4px 8px !important; line-height: 1; }
+    .acct-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      min-width: 210px;
+      z-index: 200;
+      box-shadow: 0 6px 24px rgba(0,0,0,.6);
+      overflow: hidden;
+    }
+    .acct-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .acct-item:hover    { background: var(--bg3); }
+    .acct-item-active   { background: rgba(74,158,237,.08); cursor: default; }
+    .acct-item img      { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border); flex-shrink: 0; }
+    .acct-item-label    { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .acct-active-badge  { font-size: 10px; color: var(--green); font-weight: 700; flex-shrink: 0; }
+    .acct-remove {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: var(--text2);
+      font-size: 17px;
+      line-height: 1;
+      padding: 0 3px;
+      cursor: pointer;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .acct-remove:hover  { color: var(--red); background: rgba(209,64,64,.12); }
+    .acct-divider       { height: 1px; background: var(--border); }
+    .acct-add {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 12px;
+      font-size: 13px;
+      color: var(--blue);
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .acct-add:hover { background: var(--bg3); }
   </style>
 </head>
 <body>
@@ -456,17 +511,12 @@ const SCOPES       = [
 ].join(' ');
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 
-const K = {
-  at:       'eve_at',
-  rt:       'eve_rt',
-  exp:      'eve_exp',
-  cid:      'eve_cid',
-  cname:    'eve_cname',
-  corpId:   'eve_corp_id',
-  clientId: 'eve_client_id',
-  verifier: 'eve_pkce_v',
-  state:    'eve_pkce_s',
-};
+// Multi-account storage keys
+const ACCOUNTS_KEY  = 'eve_accounts';   // JSON: { charId: { at, rt, exp, cname, corpId } }
+const ACTIVE_KEY    = 'eve_active_char'; // charId of the currently active account
+const CLIENT_ID_KEY = 'eve_client_id';
+const PKCE_V_KEY    = 'eve_pkce_v';
+const PKCE_S_KEY    = 'eve_pkce_s';
 
 // =============================================================
 // App state
@@ -490,6 +540,68 @@ let undercutLastFetched = null;    // Date of last completed undercut check
 let undercutTicks = parseInt(localStorage.getItem('eve_uc_ticks') || '2');  // ticks to move when undercutting
 let undercutScope = localStorage.getItem('eve_uc_scope') || 'station';       // 'station' | 'region'
 let compactMode   = localStorage.getItem('eve_compact') === '1';
+
+// =============================================================
+// Multi-account helpers
+// =============================================================
+function getAccounts() {
+  try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '{}'); }
+  catch (_) { return {}; }
+}
+
+function saveAccounts(obj) {
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(obj));
+}
+
+function getActiveCharId() {
+  return localStorage.getItem(ACTIVE_KEY);
+}
+
+function setActiveAccount(charId) {
+  localStorage.setItem(ACTIVE_KEY, charId);
+  renderHeaderChar();
+  loadOrders();
+}
+
+function removeAccount(charId) {
+  const accounts = getAccounts();
+  delete accounts[charId];
+  saveAccounts(accounts);
+
+  const remaining = Object.keys(accounts);
+  if (!remaining.length) {
+    localStorage.removeItem(ACTIVE_KEY);
+    window.location.reload();
+    return;
+  }
+  // If removing active account, switch to first remaining
+  const currentActive = getActiveCharId();
+  const nextId = currentActive === charId ? remaining[0] : currentActive;
+  localStorage.setItem(ACTIVE_KEY, nextId);
+  renderHeaderChar();
+  loadOrders();
+}
+
+// One-time migration: move old flat-key tokens into the accounts object
+function migrateOldTokens() {
+  const oldAt    = localStorage.getItem('eve_at');
+  const oldCid   = localStorage.getItem('eve_cid');
+  if (!oldAt || !oldCid) return;
+
+  const accounts = getAccounts();
+  if (!accounts[oldCid]) {
+    accounts[oldCid] = {
+      at:    oldAt,
+      rt:    localStorage.getItem('eve_rt')  || '',
+      exp:   parseInt(localStorage.getItem('eve_exp') || '0'),
+      cname: localStorage.getItem('eve_cname') || 'Pilot',
+    };
+    saveAccounts(accounts);
+    if (!getActiveCharId()) localStorage.setItem(ACTIVE_KEY, oldCid);
+  }
+  // Remove legacy flat keys
+  ['eve_at','eve_rt','eve_exp','eve_cid','eve_cname','eve_corp_id'].forEach(k => localStorage.removeItem(k));
+}
 
 // =============================================================
 // PKCE helpers
@@ -518,15 +630,15 @@ async function startLogin() {
     showLoginError('No Client ID configured. Set HARDCODED_CLIENT_ID in the source.');
     return;
   }
-  localStorage.setItem(K.clientId, clientId);
+  localStorage.setItem(CLIENT_ID_KEY, clientId);
   hideLoginError();
 
   const verifier  = randomStr(64);
   const state     = randomStr(16);
   const challenge = await pkceChallenge(verifier);
 
-  localStorage.setItem(K.verifier, verifier);
-  localStorage.setItem(K.state,    state);
+  localStorage.setItem(PKCE_V_KEY, verifier);
+  localStorage.setItem(PKCE_S_KEY, state);
 
   const params = new URLSearchParams({
     response_type:         'code',
@@ -545,12 +657,12 @@ async function startLogin() {
 // OAuth callback
 // =============================================================
 async function handleCallback(code, state) {
-  if (state !== localStorage.getItem(K.state)) {
+  if (state !== localStorage.getItem(PKCE_S_KEY)) {
     throw new Error('State mismatch — possible CSRF. Please try logging in again.');
   }
 
-  const verifier = localStorage.getItem(K.verifier);
-  const clientId = localStorage.getItem(K.clientId);
+  const verifier = localStorage.getItem(PKCE_V_KEY);
+  const clientId = localStorage.getItem(CLIENT_ID_KEY);
   if (!verifier || !clientId) throw new Error('Missing PKCE data. Please try logging in again.');
 
   const resp = await fetch(`${SSO_BASE}/v2/oauth/token`, {
@@ -572,8 +684,8 @@ async function handleCallback(code, state) {
 
   const tokens = await resp.json();
   storeTokens(tokens);
-  localStorage.removeItem(K.verifier);
-  localStorage.removeItem(K.state);
+  localStorage.removeItem(PKCE_V_KEY);
+  localStorage.removeItem(PKCE_S_KEY);
   window.history.replaceState({}, '', window.location.pathname);
 }
 
@@ -581,58 +693,85 @@ async function handleCallback(code, state) {
 // Token management
 // =============================================================
 function storeTokens(tokens) {
-  localStorage.setItem(K.at,  tokens.access_token);
-  if (tokens.refresh_token) localStorage.setItem(K.rt, tokens.refresh_token);
-  localStorage.setItem(K.exp, Date.now() + (tokens.expires_in - 30) * 1000);
-
+  let charId, charName;
   try {
     const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
-    localStorage.setItem(K.cid,   payload.sub.replace('CHARACTER:EVE:', ''));
-    localStorage.setItem(K.cname, payload.name);
+    charId   = payload.sub.replace('CHARACTER:EVE:', '');
+    charName = payload.name;
   } catch (e) {
     console.warn('Could not parse JWT payload', e);
+    return;
   }
+
+  const accounts = getAccounts();
+  accounts[charId] = {
+    at:    tokens.access_token,
+    rt:    tokens.refresh_token || (accounts[charId] && accounts[charId].rt) || '',
+    exp:   Date.now() + (tokens.expires_in - 30) * 1000,
+    cname: charName,
+  };
+  saveAccounts(accounts);
+  localStorage.setItem(ACTIVE_KEY, charId);
 }
 
-async function getToken() {
-  if (Date.now() < parseInt(localStorage.getItem(K.exp) || '0')) {
-    return localStorage.getItem(K.at);
+async function getToken(charId) {
+  const cid      = charId || getActiveCharId();
+  const accounts = getAccounts();
+  const acct     = accounts[cid];
+  if (!acct) {
+    throw Object.assign(new Error('Session expired.'), { charId: cid, isAuthError: true });
   }
-  return doRefreshToken();
+  if (Date.now() < (acct.exp || 0)) return acct.at;
+  return doRefreshToken(cid);
 }
 
-async function doRefreshToken() {
-  const rt       = localStorage.getItem(K.rt);
-  const clientId = localStorage.getItem(K.clientId);
-  if (!rt || !clientId) { logout(); throw new Error('Session expired.'); }
+async function doRefreshToken(charId) {
+  const accounts = getAccounts();
+  const acct     = accounts[charId];
+  const clientId = localStorage.getItem(CLIENT_ID_KEY) || HARDCODED_CLIENT_ID;
+  if (!acct || !acct.rt || !clientId) {
+    throw Object.assign(new Error('Session expired.'), { charId, isAuthError: true });
+  }
 
   const resp = await fetch(`${SSO_BASE}/v2/oauth/token`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type:    'refresh_token',
-      refresh_token: rt,
+      refresh_token: acct.rt,
       client_id:     clientId,
     }),
   });
 
-  if (!resp.ok) { logout(); throw new Error('Session expired. Please log in again.'); }
+  if (!resp.ok) {
+    throw Object.assign(new Error('Session expired. Please log in again.'), { charId, isAuthError: true });
+  }
 
-  const tokens = await resp.json();
-  storeTokens(tokens);
+  const tokens   = await resp.json();
+  const refreshed = getAccounts();
+  if (refreshed[charId]) {
+    refreshed[charId] = {
+      ...refreshed[charId],
+      at:  tokens.access_token,
+      rt:  tokens.refresh_token || refreshed[charId].rt,
+      exp: Date.now() + (tokens.expires_in - 30) * 1000,
+    };
+    saveAccounts(refreshed);
+  }
   return tokens.access_token;
 }
 
 function logout() {
-  Object.values(K).forEach(k => localStorage.removeItem(k));
-  window.location.reload();
+  const charId = getActiveCharId();
+  if (charId) removeAccount(charId);
+  else window.location.reload();
 }
 
 // =============================================================
 // ESI helpers
 // =============================================================
-async function esiGet(path) {
-  const token = await getToken();
+async function esiGet(path, charId) {
+  const token = await getToken(charId);
   const resp  = await fetch(`${ESI_BASE}${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -640,8 +779,8 @@ async function esiGet(path) {
   return resp.json();
 }
 
-async function esiPost(path) {
-  const token = await getToken();
+async function esiPost(path, charId) {
+  const token = await getToken(charId);
   const resp  = await fetch(`${ESI_BASE}${path}`, {
     method:  'POST',
     headers: { Authorization: `Bearer ${token}` },
@@ -697,10 +836,10 @@ async function loadOrders() {
   if (ufEl) ufEl.value = 'all';
 
   try {
-    const charId = localStorage.getItem(K.cid);
+    const charId = getActiveCharId();
 
     // ── Character personal orders ──────────────────────────────
-    const charOrdersRaw = await esiGet(`/characters/${charId}/orders/`);
+    const charOrdersRaw = await esiGet(`/characters/${charId}/orders/`, charId);
     // Keep only orders placed for the character personally (not via corp role)
     const personalOrders = charOrdersRaw
       .filter(o => !o.is_corporation)
@@ -712,7 +851,7 @@ async function loadOrders() {
     // Trade:3443 +4/lvl  Retail:3444 +8/lvl  Wholesale:16596 +16/lvl  Tycoon:18580 +32/lvl
     charSlotsMax = 0;
     try {
-      const skillData = await esiGet(`/characters/${charId}/skills/`);
+      const skillData = await esiGet(`/characters/${charId}/skills/`, charId);
       const sm = {};
       skillData.skills.forEach(s => { sm[s.skill_id] = s.trained_skill_level; });
       charSlotsMax = 5
@@ -728,11 +867,13 @@ async function loadOrders() {
     let corpOrders = [];
     try {
       // Get corp ID from character info
-      const charInfo = await esiGet(`/characters/${charId}/`);
+      const charInfo = await esiGet(`/characters/${charId}/`, charId);
       const corpId   = charInfo.corporation_id;
-      localStorage.setItem(K.corpId, corpId);
+      // Cache corpId in the account object
+      const accts = getAccounts();
+      if (accts[charId]) { accts[charId].corpId = corpId; saveAccounts(accts); }
 
-      const corpRaw = await esiGet(`/corporations/${corpId}/orders/`);
+      const corpRaw = await esiGet(`/corporations/${corpId}/orders/`, charId);
       corpOrders = corpRaw.map(o => ({
         ...o,
         _src:         'corp',
@@ -769,6 +910,12 @@ async function loadOrders() {
     // Kick off undercut checks in the background — re-renders when done
     loadUndercutStatus(allOrders);
   } catch (e) {
+    if (e.isAuthError) {
+      // Token invalid/expired — remove that account and switch to another (or show login)
+      removeAccount(e.charId);
+      btn.disabled = false;
+      return;
+    }
     showMsg(`<div class="err-text">⚠ ${escHtml(e.message)}</div>`);
     console.error(e);
   }
@@ -1327,15 +1474,46 @@ function showView(v) {
 }
 
 function renderHeaderChar() {
-  const id   = localStorage.getItem(K.cid);
-  const name = localStorage.getItem(K.cname) || 'Pilot';
+  const activeId = getActiveCharId();
+  const accounts = getAccounts();
+  const acct     = accounts[activeId];
+  if (!acct) return;
+
+  const name  = acct.cname || 'Pilot';
+  const items = Object.entries(accounts).map(([cid, a]) => {
+    const isActive = cid === activeId;
+    const label    = escHtml(a.cname || 'Pilot');
+    return `
+      <div class="acct-item${isActive ? ' acct-item-active' : ''}"
+           ${isActive ? '' : `onclick="event.stopPropagation();setActiveAccount('${escHtml(cid)}')" `}>
+        <img src="https://images.evetech.net/characters/${escHtml(cid)}/portrait?size=32" alt="${label}">
+        <span class="acct-item-label">${label}</span>
+        ${isActive ? '<span class="acct-active-badge">ACTIVE</span>' : ''}
+        <button class="acct-remove" title="Remove account"
+                onclick="event.stopPropagation();removeAccount('${escHtml(cid)}')">×</button>
+      </div>`;
+  }).join('');
+
   document.getElementById('header-right').innerHTML = `
-    <div class="char-info">
-      <img src="https://images.evetech.net/characters/${id}/portrait?size=64" alt="${escHtml(name)}">
+    <div class="acct-switcher" id="acct-switcher">
+      <img src="https://images.evetech.net/characters/${escHtml(activeId)}/portrait?size=36"
+           alt="${escHtml(name)}" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--border);">
       <span class="char-name">${escHtml(name)}</span>
-      <button class="btn btn-secondary" style="font-size:12px;padding:5px 10px;" onclick="logout()">Sign Out</button>
+      <button class="btn btn-secondary acct-chevron" onclick="toggleAcctDropdown(event)">▼</button>
+      <div class="acct-dropdown" id="acct-dropdown" style="display:none" onclick="event.stopPropagation()">
+        ${items}
+        <div class="acct-divider"></div>
+        <div class="acct-add" onclick="startLogin()">＋ Add Account</div>
+      </div>
     </div>
   `;
+}
+
+function toggleAcctDropdown(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('acct-dropdown');
+  if (!dd) return;
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
 }
 
 function showLoginError(msg) {
@@ -1348,7 +1526,7 @@ function hideLoginError() {
 }
 
 function getClientId() {
-  return localStorage.getItem(K.clientId) || HARDCODED_CLIENT_ID;
+  return localStorage.getItem(CLIENT_ID_KEY) || HARDCODED_CLIENT_ID;
 }
 
 // EVE uses a 4-significant-figure price model — only the first four digits
@@ -1402,7 +1580,7 @@ function copyUndercut(orderId, isBuy, ourPrice, typeId) {
 
 async function openMarketWindow(typeId, orderId) {
   try {
-    await esiPost(`/ui/openwindow/marketdetails/?type_id=${typeId}`);
+    await esiPost(`/ui/openwindow/marketdetails/?type_id=${typeId}`, getActiveCharId());
   } catch (err) {
     if (err.status === 403) {
       const btn = document.getElementById(`copy-btn-${orderId}`);
@@ -1445,7 +1623,10 @@ async function init() {
   const cbEl = document.getElementById('callback-url-display');
   if (cbEl) cbEl.textContent = REDIRECT_URI;
 
-const params = new URLSearchParams(window.location.search);
+  // Migrate any existing single-account tokens to the new multi-account format
+  migrateOldTokens();
+
+  const params = new URLSearchParams(window.location.search);
   const code   = params.get('code');
   const state  = params.get('state');
   const error  = params.get('error');
@@ -1469,15 +1650,20 @@ const params = new URLSearchParams(window.location.search);
     }
   }
 
-  const at  = localStorage.getItem(K.at);
-  const cid = localStorage.getItem(K.cid);
+  const accounts = getAccounts();
+  const activeId = getActiveCharId();
 
-  if (at && cid) {
+  if (Object.keys(accounts).length && activeId && accounts[activeId]) {
     showView('dashboard');
     renderHeaderChar();
     initUcSettings();
     applyCompact();
     loadOrders();
+    // Close the account dropdown when clicking anywhere outside it
+    document.addEventListener('click', () => {
+      const dd = document.getElementById('acct-dropdown');
+      if (dd) dd.style.display = 'none';
+    });
   } else {
     showView('login');
   }
