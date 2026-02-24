@@ -584,7 +584,7 @@
           </div>
           <div class="settings-row">
             <span class="settings-label" title="Number of 0.01 ISK ticks to move below the current best price when suggesting an undercut price.">Ticks</span>
-            <input type="number" id="uc-ticks-input" class="ticks-input" min="1" step="1" value="2" onchange="setUcTicks(+this.value)" title="How many price ticks (0.01 ISK each) to undercut by">
+            <input type="number" id="uc-ticks-input" class="ticks-input" min="1" step="1" value="1" onchange="setUcTicks(+this.value)" title="How many price ticks (0.01 ISK each) to undercut by">
           </div>
           <div class="settings-row" style="margin-top:4px">
             <span class="settings-label" id="uc-timestamp">Market checked: —</span>
@@ -740,7 +740,7 @@ let undercutStatus     = {};       // order_id → { status: 'loading'|'best'|'u
 let marketCache        = {};       // 'regionId:typeId' → { ourOrders, market }
 let undercutLastFetched = null;    // Date of last completed undercut check
 
-let undercutTicks = parseInt(localStorage.getItem('eve_uc_ticks') || '2');  // ticks to move when undercutting
+let undercutTicks = parseInt(localStorage.getItem('eve_uc_ticks') || '1');  // ticks to move when undercutting
 let undercutScope = localStorage.getItem('eve_uc_scope') || 'station';       // 'station' | 'region'
 let compactMode   = localStorage.getItem('eve_compact') === '1';
 
@@ -1208,7 +1208,11 @@ function renderWalletBar() {
       </div>`;
   }
 
-  bar.innerHTML = html;
+  bar.innerHTML = html || `
+    <div class="wallet-card" style="color:var(--text2);font-size:13px;gap:8px">
+      <span style="color:var(--orange)">⚠</span>
+      Wallet balances unavailable — <a href="#" onclick="logout();return false;" style="color:var(--blue)">re-authorize</a> to grant wallet scopes.
+    </div>`;
 }
 
 function setCorpWalletDiv(div) {
