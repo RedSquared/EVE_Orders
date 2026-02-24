@@ -399,31 +399,46 @@
     }
     .acct-add:hover { background: var(--bg3); }
 
-    /* ── Wallet bar ── */
-    .wallet-bar {
+    /* ── Header wallets ── */
+    #header-wallets {
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 0 16px 10px;
-    }
-    .wallet-card {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 8px 14px;
-      display: flex;
+      gap: 24px;
       align-items: center;
-      gap: 16px;
-      min-width: 220px;
+      flex: 1;
+      justify-content: center;
     }
-    .wallet-label {
-      font-size: 12px;
+    .hw-card {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+    }
+    .hw-label {
+      font-size: 10px;
       color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       white-space: nowrap;
     }
+    .hw-val {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .hw-div-select {
+      background: transparent;
+      border: none;
+      color: var(--text2);
+      font-size: 10px;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 0;
+    }
+    .hw-div-select:hover { color: var(--text); }
     .wallet-value {
       font-size: 18px;
       font-weight: 700;
@@ -509,6 +524,7 @@
 
 <header>
   <div class="logo"><span class="eve">EVE</span>&nbsp;<span class="orders">Orders</span></div>
+  <div id="header-wallets"></div>
   <div style="display:flex;align-items:center;gap:10px">
     <button class="btn btn-secondary help-btn" onclick="toggleHelp()" title="Open user guide">?</button>
     <div id="header-right"></div>
@@ -538,9 +554,6 @@
     <div class="stats-bar" id="stats-bar">
       <div class="stat-card"><div class="stat-label">Orders</div><div class="stat-value">—</div></div>
     </div>
-
-    <!-- Wallet bar -->
-    <div class="wallet-bar" id="wallet-bar"></div>
 
     <!-- Station Breakdown -->
     <div class="section" id="station-section">
@@ -1174,45 +1187,39 @@ function updateCorpVisibility() {
 // Render: wallet bar
 // =============================================================
 function renderWalletBar() {
-  const bar = document.getElementById('wallet-bar');
-  if (!bar) return;
+  const el = document.getElementById('header-wallets');
+  if (!el) return;
 
   let html = '';
 
   if (walletPersonal !== null) {
     html += `
-      <div class="wallet-card">
-        <div class="wallet-label">Personal Wallet</div>
-        <div class="wallet-value green">${fmtISK(walletPersonal)} ISK</div>
+      <div class="hw-card" title="Personal wallet balance">
+        <div class="hw-label">Personal</div>
+        <div class="hw-val green">${fmtISK(walletPersonal)}</div>
       </div>`;
   }
 
   if (walletCorp !== null) {
-    const divObj   = walletCorp.find(d => d.division === walletCorpDivision) || walletCorp[0];
-    const balance  = divObj ? divObj.balance : 0;
-    const divLabel = walletCorpNames[walletCorpDivision] || (walletCorpDivision === 1 ? 'Master Wallet' : `Division ${walletCorpDivision}`);
-
-    // Build options for the selector
-    const opts = walletCorp.map(d => {
-      const lbl = walletCorpNames[d.division] || (d.division === 1 ? 'Master Wallet' : `Division ${d.division}`);
+    const divObj  = walletCorp.find(d => d.division === walletCorpDivision) || walletCorp[0];
+    const balance = divObj ? divObj.balance : 0;
+    const opts    = walletCorp.map(d => {
+      const lbl = walletCorpNames[d.division] || (d.division === 1 ? 'Master' : `Div ${d.division}`);
       return `<option value="${d.division}" ${d.division === walletCorpDivision ? 'selected' : ''}>${lbl}</option>`;
     }).join('');
 
     html += `
-      <div class="wallet-card">
-        <div class="wallet-label">
-          Corp Wallet
-          <select class="wallet-div-select" onchange="setCorpWalletDiv(+this.value)" title="Choose which corp wallet division to display">${opts}</select>
-        </div>
-        <div class="wallet-value gold">${fmtISK(balance)} ISK</div>
+      <div class="hw-card" title="Corp wallet balance — use selector to switch division">
+        <div class="hw-label">Corp <select class="hw-div-select" onchange="setCorpWalletDiv(+this.value)" title="Choose division">${opts}</select></div>
+        <div class="hw-val gold">${fmtISK(balance)}</div>
       </div>`;
   }
 
-  bar.innerHTML = html || `
-    <div class="wallet-card" style="color:var(--text2);font-size:13px;gap:8px">
-      <span style="color:var(--orange)">⚠</span>
-      Wallet balances unavailable — <a href="#" onclick="logout();return false;" style="color:var(--blue)">re-authorize</a> to grant wallet scopes.
-    </div>`;
+  if (!html && walletPersonal === null && walletCorp === null) {
+    html = `<span style="font-size:12px;color:var(--orange)" title="Re-authorize to grant wallet scopes">⚠ wallet unavailable — <a href="#" onclick="logout();return false;" style="color:var(--blue)">re-auth</a></span>`;
+  }
+
+  el.innerHTML = html;
 }
 
 function setCorpWalletDiv(div) {
@@ -1272,11 +1279,16 @@ function renderStats() {
   const ucCut     = scopeAll.filter(o => undercutStatus[o.order_id]?.status === 'undercut').length;
   const ucBest    = scopeAll.filter(o => undercutStatus[o.order_id]?.status === 'best').length;
   const ucPending = scopeAll.some(o => !undercutStatus[o.order_id] || undercutStatus[o.order_id].status === 'loading');
-  const ucPct     = ucTotal > 0 ? Math.round((ucCut / ucTotal) * 100) : 0;
+  const ucRedPct   = ucTotal > 0 ? Math.round((ucCut  / ucTotal) * 100) : 0;
+  const ucGrnPct   = ucTotal > 0 ? Math.round((ucBest / ucTotal) * 100) : 0;
   const ucHtmlStat = ucPending
     ? `<div class="stat-value" style="font-size:15px;color:var(--text2)"><span class="mini-spin"></span> checking…</div>`
     : `<div class="stat-value ${ucCut > 0 ? 'red' : 'green'}">${ucCut} <span style="font-size:14px;font-weight:400;color:var(--text2)">/ ${ucTotal}</span></div>
-       <div class="stat-sub">${ucBest} best · ${ucPct}% undercut</div>`;
+       <div class="stat-sub">${ucBest} best · ${ucCut} undercut</div>
+       <div class="slot-bar" style="display:flex">
+         <div style="height:100%;width:${ucRedPct}%;background:var(--red);transition:width .3s"></div>
+         <div style="height:100%;width:${ucGrnPct}%;background:var(--green);transition:width .3s"></div>
+       </div>`;
 
   const warnHtml = corpOrdersWarning
     ? `<div class="stat-card" style="border-left:3px solid var(--orange);flex-basis:100%">
