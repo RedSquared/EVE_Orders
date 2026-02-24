@@ -944,9 +944,9 @@ function renderStats() {
   const sellVal  = scopeAll.filter(o => !o.is_buy_order).reduce((s, o) => s + o.price * o.volume_remain, 0);
   const buyVal   = scopeAll.filter(o =>  o.is_buy_order).reduce((s, o) => s + o.price * o.volume_remain, 0);
 
-  // Most valuable item — corp sell orders in scope
+  // Most valuable item — corp sell orders in scope, ranked by highest unit price
   const byItem = {};
-  corpSell.forEach(o => { byItem[o.type_id] = (byItem[o.type_id] || 0) + o.price * o.volume_remain; });
+  corpSell.forEach(o => { if (!byItem[o.type_id] || o.price > byItem[o.type_id]) byItem[o.type_id] = o.price; });
   const topItemEntry = Object.entries(byItem).sort((a, b) => b[1] - a[1])[0];
   const topItemName  = topItemEntry ? (typeNames[topItemEntry[0]] || `Type ${topItemEntry[0]}`) : '—';
   const topItemVal   = topItemEntry ? topItemEntry[1] : 0;
@@ -1012,7 +1012,7 @@ function renderStats() {
     <div class="stat-card stat-wide">
       <div class="stat-label">Most Valuable Item${l}</div>
       <div class="stat-value gold" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(topItemName)}</div>
-      <div class="stat-sub">${fmtISK(topItemVal)} total</div>
+      <div class="stat-sub">${fmtISK(topItemVal)} / unit</div>
     </div>
     <div class="stat-card stat-wide">
       <div class="stat-label">Most Valuable Order${l}</div>
@@ -1496,7 +1496,7 @@ function renderHeaderChar() {
 
   document.getElementById('header-right').innerHTML = `
     <div class="acct-switcher" id="acct-switcher">
-      <img src="https://images.evetech.net/characters/${escHtml(activeId)}/portrait?size=36"
+      <img src="https://images.evetech.net/characters/${escHtml(activeId)}/portrait?size=32"
            alt="${escHtml(name)}" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--border);">
       <span class="char-name">${escHtml(name)}</span>
       <button class="btn btn-secondary acct-chevron" onclick="toggleAcctDropdown(event)">▼</button>
