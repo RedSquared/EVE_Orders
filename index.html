@@ -398,13 +398,121 @@
       transition: background .1s;
     }
     .acct-add:hover { background: var(--bg3); }
+
+    /* ── Wallet bar ── */
+    .wallet-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0 16px 10px;
+    }
+    .wallet-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-width: 220px;
+    }
+    .wallet-label {
+      font-size: 12px;
+      color: var(--text2);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .wallet-value {
+      font-size: 18px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .wallet-div-select {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text1);
+      font-size: 11px;
+      border-radius: 4px;
+      padding: 1px 4px;
+      cursor: pointer;
+    }
+
+    /* ── Help button ── */
+    .help-btn {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      font-size: 14px;
+      font-weight: 700;
+      border-radius: 50%;
+    }
+
+    /* ── Help modal ── */
+    .help-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.65);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .help-modal {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      width: 100%;
+      max-width: 680px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .help-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .help-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--gold);
+    }
+    .help-body {
+      padding: 18px 22px;
+      overflow-y: auto;
+      font-size: 13.5px;
+      line-height: 1.65;
+      color: var(--text1);
+    }
+    .help-body h3 {
+      margin: 18px 0 6px;
+      font-size: 14px;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .help-body h3:first-child { margin-top: 0; }
+    .help-body p  { margin: 0 0 8px; }
+    .help-body ul { margin: 0 0 8px; padding-left: 20px; }
+    .help-body li { margin-bottom: 4px; }
+    .help-body strong { color: var(--text1); }
   </style>
 </head>
 <body>
 
 <header>
   <div class="logo"><span class="eve">EVE</span>&nbsp;<span class="orders">Orders</span></div>
-  <div id="header-right"></div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button class="btn btn-secondary help-btn" onclick="toggleHelp()" title="Open user guide">?</button>
+    <div id="header-right"></div>
+  </div>
 </header>
 
 <main>
@@ -431,6 +539,9 @@
       <div class="stat-card"><div class="stat-label">Orders</div><div class="stat-value">—</div></div>
     </div>
 
+    <!-- Wallet bar -->
+    <div class="wallet-bar" id="wallet-bar"></div>
+
     <!-- Station Breakdown -->
     <div class="section" id="station-section">
       <div class="section-header" onclick="toggleSection()">
@@ -444,44 +555,44 @@
     <div class="toolbar">
       <span class="toolbar-title">Market Orders</span>
       <div class="filter-group">
-        <select id="type-filter" onchange="setTypeFilter(this.value)">
+        <select id="type-filter" onchange="setTypeFilter(this.value)" title="Filter by sell or buy orders">
           <option value="all">All Types</option>
           <option value="sell">Sell</option>
           <option value="buy">Buy</option>
         </select>
-        <select id="src-filter" onchange="setSrcFilter(this.value)">
+        <select id="src-filter" onchange="setSrcFilter(this.value)" title="Filter by personal or corporation orders">
           <option value="all">All Sources</option>
           <option value="personal">Personal</option>
           <option value="corp">Corp</option>
         </select>
-        <select id="uc-filter" onchange="setUcFilter(this.value)">
+        <select id="uc-filter" onchange="setUcFilter(this.value)" title="Filter by undercut status. Dupes = multiple orders for the same item at the same station.">
           <option value="all">All Status</option>
           <option value="best">Best Price</option>
           <option value="undercut">Undercut</option>
           <option value="dupes">Dupes</option>
         </select>
         <div id="loc-chip-wrap"></div>
-        <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+        <button class="btn btn-secondary" onclick="resetFilters()" title="Clear all active filters">Reset</button>
       </div>
       <div class="settings-btn-wrap">
-        <button class="btn btn-secondary" id="settings-btn" onclick="toggleSettings(event)">⚙</button>
+        <button class="btn btn-secondary" id="settings-btn" onclick="toggleSettings(event)" title="Settings, refresh and display options">⚙</button>
         <div class="settings-popover" id="settings-popover" style="display:none" onclick="event.stopPropagation()">
           <div class="settings-row">
-            <span class="settings-label">Scope</span>
-            <button class="filter-btn" data-us="station" onclick="setUcScope('station',this)">Station</button>
-            <button class="filter-btn" data-us="region"  onclick="setUcScope('region',this)">Region</button>
+            <span class="settings-label" title="Station: compare only against orders at the same station. Region: compare against the best price anywhere in the region.">Scope</span>
+            <button class="filter-btn" data-us="station" onclick="setUcScope('station',this)" title="Undercut check vs orders at the same station only">Station</button>
+            <button class="filter-btn" data-us="region"  onclick="setUcScope('region',this)"  title="Undercut check vs best price in the entire region">Region</button>
           </div>
           <div class="settings-row">
-            <span class="settings-label">Ticks</span>
-            <input type="number" id="uc-ticks-input" class="ticks-input" min="1" step="1" value="2" onchange="setUcTicks(+this.value)">
+            <span class="settings-label" title="Number of 0.01 ISK ticks to move below the current best price when suggesting an undercut price.">Ticks</span>
+            <input type="number" id="uc-ticks-input" class="ticks-input" min="1" step="1" value="2" onchange="setUcTicks(+this.value)" title="How many price ticks (0.01 ISK each) to undercut by">
           </div>
           <div class="settings-row" style="margin-top:4px">
             <span class="settings-label" id="uc-timestamp">Market checked: —</span>
           </div>
           <div class="acct-divider" style="margin:6px 0"></div>
           <div class="settings-row">
-            <button class="btn btn-secondary" id="compact-btn" onclick="toggleCompact()" style="flex:1">Compact</button>
-            <button class="btn btn-secondary" id="refresh-btn" onclick="loadOrders()"    style="flex:1">Refresh</button>
+            <button class="btn btn-secondary" id="compact-btn" onclick="toggleCompact()" style="flex:1" title="Toggle compact view — hides item icons and reduces row height">Compact</button>
+            <button class="btn btn-secondary" id="refresh-btn" onclick="loadOrders()"    style="flex:1" title="Reload all orders and re-check market prices">Refresh</button>
           </div>
         </div>
       </div>
@@ -496,15 +607,15 @@
       <table id="orders-table" style="display:none">
         <thead>
           <tr>
-            <th class="copy-col"></th>
-            <th onclick="sortBy('item')">    Item       <span id="si-item"></span></th>
-            <th onclick="sortBy('type')">    Type       <span id="si-type"></span></th>
-            <th onclick="sortBy('status')">  Status     <span id="si-status"></span></th>
-            <th onclick="sortBy('price')" class="r">Unit Price  <span id="si-price"></span></th>
-            <th onclick="sortBy('volume')" class="r">Qty         <span id="si-volume"></span></th>
-            <th onclick="sortBy('total')" class="r">Order Total <span id="si-total"></span></th>
-            <th onclick="sortBy('location')">Location   <span id="si-location"></span></th>
-            <th onclick="sortBy('expiry')"> Expires     <span id="si-expiry"></span></th>
+            <th class="copy-col" title="Copy suggested undercut price to clipboard and open in-game market window"></th>
+            <th onclick="sortBy('item')"     title="Click to sort by item name">         Item       <span id="si-item"></span></th>
+            <th onclick="sortBy('type')"     title="Click to sort by order type">        Type       <span id="si-type"></span></th>
+            <th onclick="sortBy('status')"   title="Click to sort by undercut status">   Status     <span id="si-status"></span></th>
+            <th onclick="sortBy('price')"  class="r" title="Click to sort by unit price">Unit Price  <span id="si-price"></span></th>
+            <th onclick="sortBy('volume')" class="r" title="Click to sort by remaining quantity">Qty         <span id="si-volume"></span></th>
+            <th onclick="sortBy('total')"  class="r" title="Click to sort by total order value (price × qty)">Order Total <span id="si-total"></span></th>
+            <th onclick="sortBy('location')" title="Click to sort by station name">      Location   <span id="si-location"></span></th>
+            <th onclick="sortBy('expiry')"   title="Click to sort by expiry date">       Expires     <span id="si-expiry"></span></th>
           </tr>
         </thead>
         <tbody id="orders-body"></tbody>
@@ -514,6 +625,72 @@
   </div>
 
 </main>
+
+<!-- ── Help Modal ── -->
+<div id="help-overlay" class="help-overlay" style="display:none" onclick="closeHelp(event)">
+  <div class="help-modal" onclick="event.stopPropagation()">
+    <div class="help-header">
+      <span class="help-title">EVE Orders — User Guide</span>
+      <button class="btn btn-secondary" onclick="toggleHelp()" style="padding:2px 10px;font-size:16px">✕</button>
+    </div>
+    <div class="help-body">
+
+      <h3>Getting Started</h3>
+      <p>Click <strong>Sign In with EVE Online</strong> to authenticate using your EVE SSO account. Your tokens are stored locally in your browser and are never sent anywhere except the official EVE SSO and ESI servers. To add more characters, open the account switcher in the top-right and choose <em>Add Account</em>.</p>
+
+      <h3>Dashboard Overview</h3>
+      <p>Once logged in you will see three sections:</p>
+      <ul>
+        <li><strong>Wallet Bar</strong> — Your personal and corp ISK balances. Use the division selector on the corp wallet to pick which wallet to display.</li>
+        <li><strong>Stats Bar</strong> — At-a-glance numbers: free order slots, undercut status (always visible), corp order counts (if you have the role), sell/buy values, and top items. Hover any card for a description.</li>
+        <li><strong>Station Breakdown</strong> — Your orders grouped by station with sell/buy counts and undercut flags. Click the header to collapse.</li>
+        <li><strong>Market Orders Table</strong> — Every active order with full detail. Click any station row above to filter the table to that station.</li>
+      </ul>
+
+      <h3>Filters</h3>
+      <ul>
+        <li><strong>All Types / Sell / Buy</strong> — Show only sell orders, only buy orders, or both.</li>
+        <li><strong>All Sources / Personal / Corp</strong> — Switch between your personal orders and corp orders. Corp requires the Accountant or Market Manager role in your corporation.</li>
+        <li><strong>All Status / Best Price / Undercut / Dupes</strong> — Filter by undercut status. <em>Dupes</em> shows items where you have more than one order at the same station.</li>
+        <li><strong>Location chip</strong> — Appears when you click a station in the Station Breakdown. Shows orders only at that station. Click the ✕ on the chip to clear.</li>
+        <li><strong>Reset</strong> — Clears all active filters at once.</li>
+      </ul>
+
+      <h3>Undercut Detection</h3>
+      <p>After orders load, the app fetches live market data in the background and flags any order where a competitor has a better price.</p>
+      <ul>
+        <li><strong>Station scope</strong> — Compares only against orders at the exact same station. Best for station traders.</li>
+        <li><strong>Region scope</strong> — Compares against the best price anywhere in the region. Best for regional traders.</li>
+        <li><strong>Ticks</strong> — EVE prices move in 0.01 ISK increments called ticks. Set how many ticks below the current best price the copy button will suggest. Default is 2 ticks.</li>
+      </ul>
+
+      <h3>Copy Button (⎘)</h3>
+      <p>Clicking the copy icon on any order does two things simultaneously: copies the suggested undercut price to your clipboard, and opens the item's market window inside the EVE client (if the client is running). Paste the price directly into the <em>Modify Order</em> dialog.</p>
+
+      <h3>Order Slots</h3>
+      <p>The <strong>Personal Slots Free</strong> card shows how many more orders you can place, based on your Trade-related skills (Trade, Retail, Wholesale, Tycoon). The bar turns orange above 70% and red above 90% usage. Corp orders you placed yourself also consume your personal slots.</p>
+
+      <h3>Corp Orders</h3>
+      <p>Corp orders are visible if your character holds the <strong>Accountant</strong> or <strong>Market Manager</strong> role within the corporation. Without this role the corp section is hidden and a notice is shown. Orders placed by other corp members are included but they do not count against your personal slot limit.</p>
+
+      <h3>Wallet</h3>
+      <p>Personal and corp wallets are shown in the wallet bar below the stats. The corp wallet shows up to 7 divisions — use the division selector to switch between them. Division names are fetched from ESI when available.</p>
+
+      <h3>Multi-Account</h3>
+      <p>You can sign in with multiple EVE characters. Use the account switcher in the header to switch the active character or remove an account. Each character's tokens are stored independently.</p>
+
+      <h3>Settings (⚙)</h3>
+      <p>The settings button in the toolbar opens a popover with:</p>
+      <ul>
+        <li><strong>Scope</strong> — Station or Region undercut comparison.</li>
+        <li><strong>Ticks</strong> — Price undercut increment.</li>
+        <li><strong>Compact</strong> — Hides item icons and reduces row height for a denser view.</li>
+        <li><strong>Refresh</strong> — Manually reload all orders and re-check market prices.</li>
+      </ul>
+
+    </div>
+  </div>
+</div>
 
 <script>
 // =============================================================
@@ -532,6 +709,8 @@ const SCOPES       = [
   'esi-markets.read_corporation_orders.v1',
   'esi-skills.read_skills.v1',
   'esi-ui.open_window.v1',
+  'esi-wallet.read_character_wallet.v1',
+  'esi-wallet.read_corporation_wallets.v1',
 ].join(' ');
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 
@@ -564,6 +743,12 @@ let undercutLastFetched = null;    // Date of last completed undercut check
 let undercutTicks = parseInt(localStorage.getItem('eve_uc_ticks') || '2');  // ticks to move when undercutting
 let undercutScope = localStorage.getItem('eve_uc_scope') || 'station';       // 'station' | 'region'
 let compactMode   = localStorage.getItem('eve_compact') === '1';
+
+let hasCorpRoles       = null;   // null=unknown, true=has roles, false=lacks Accountant/Market Manager
+let walletPersonal     = null;   // personal ISK balance or null
+let walletCorp         = null;   // array of {division, balance} or null
+let walletCorpDivision = parseInt(localStorage.getItem('eve_corp_wallet_div') || '1');
+let walletCorpNames    = {};     // division number → label (fetched if possible)
 
 // =============================================================
 // Multi-account helpers
@@ -848,6 +1033,9 @@ async function loadOrders() {
   const btn = document.getElementById('refresh-btn');
   btn.disabled = true;
   corpOrdersWarning   = '';
+  hasCorpRoles        = null;
+  walletPersonal      = null;
+  walletCorp          = null;
   undercutStatus      = {};
   marketCache         = {};
   undercutLastFetched = null;
@@ -905,13 +1093,31 @@ async function loadOrders() {
         // corp endpoint uses issued_by instead of is_corporation
         is_corporation: true,
       }));
+      hasCorpRoles = true;
+
+      // ── Corp wallet ──────────────────────────────────────────
+      try {
+        walletCorp = await esiGet(`/corporations/${corpId}/wallets/`, charId);
+        // Try to fetch division names (requires no extra scope beyond corp wallet)
+        try {
+          const divs = await esiGet(`/corporations/${corpId}/divisions/`, charId);
+          walletCorpNames = {};
+          (divs.wallet || []).forEach(d => { walletCorpNames[d.division] = d.name; });
+        } catch (_) { walletCorpNames = {}; }
+      } catch (_) { walletCorp = null; }
     } catch (e) {
       if (e.message.includes('403')) {
+        hasCorpRoles = false;
         corpOrdersWarning = 'Corp orders require the Accountant or Market Manager role — showing personal orders only.';
       } else {
         corpOrdersWarning = `Corp orders unavailable: ${e.message}`;
       }
     }
+
+    // ── Personal wallet ────────────────────────────────────────
+    try {
+      walletPersonal = await esiGet(`/characters/${charId}/wallet/`, charId);
+    } catch (_) { walletPersonal = null; }
 
     allOrders = [...personalOrders, ...corpOrders];
 
@@ -928,6 +1134,8 @@ async function loadOrders() {
     )];
     locNames = await resolveNames(stationIds);
 
+    updateCorpVisibility();
+    renderWalletBar();
     renderStats();
     renderStationBreakdown();
     renderOrders();
@@ -945,6 +1153,68 @@ async function loadOrders() {
   }
 
   btn.disabled = false;
+}
+
+// =============================================================
+// Corp visibility — hide corp-related UI when roles are missing
+// =============================================================
+function updateCorpVisibility() {
+  const srcSelect = document.getElementById('src-filter');
+  if (!srcSelect) return;
+  const corpOption = srcSelect.querySelector('option[value="corp"]');
+  if (corpOption) corpOption.disabled = (hasCorpRoles === false);
+  // If corp was the active filter but we have no roles, reset to all
+  if (hasCorpRoles === false && activeSrcFilt === 'corp') {
+    activeSrcFilt = 'all';
+    srcSelect.value = 'all';
+  }
+}
+
+// =============================================================
+// Render: wallet bar
+// =============================================================
+function renderWalletBar() {
+  const bar = document.getElementById('wallet-bar');
+  if (!bar) return;
+
+  let html = '';
+
+  if (walletPersonal !== null) {
+    html += `
+      <div class="wallet-card">
+        <div class="wallet-label">Personal Wallet</div>
+        <div class="wallet-value green">${fmtISK(walletPersonal)} ISK</div>
+      </div>`;
+  }
+
+  if (walletCorp !== null) {
+    const divObj   = walletCorp.find(d => d.division === walletCorpDivision) || walletCorp[0];
+    const balance  = divObj ? divObj.balance : 0;
+    const divLabel = walletCorpNames[walletCorpDivision] || (walletCorpDivision === 1 ? 'Master Wallet' : `Division ${walletCorpDivision}`);
+
+    // Build options for the selector
+    const opts = walletCorp.map(d => {
+      const lbl = walletCorpNames[d.division] || (d.division === 1 ? 'Master Wallet' : `Division ${d.division}`);
+      return `<option value="${d.division}" ${d.division === walletCorpDivision ? 'selected' : ''}>${lbl}</option>`;
+    }).join('');
+
+    html += `
+      <div class="wallet-card">
+        <div class="wallet-label">
+          Corp Wallet
+          <select class="wallet-div-select" onchange="setCorpWalletDiv(+this.value)" title="Choose which corp wallet division to display">${opts}</select>
+        </div>
+        <div class="wallet-value gold">${fmtISK(balance)} ISK</div>
+      </div>`;
+  }
+
+  bar.innerHTML = html;
+}
+
+function setCorpWalletDiv(div) {
+  walletCorpDivision = div;
+  localStorage.setItem('eve_corp_wallet_div', String(div));
+  renderWalletBar();
 }
 
 // =============================================================
@@ -968,15 +1238,15 @@ function renderStats() {
   const sellVal  = scopeAll.filter(o => !o.is_buy_order).reduce((s, o) => s + o.price * o.volume_remain, 0);
   const buyVal   = scopeAll.filter(o =>  o.is_buy_order).reduce((s, o) => s + o.price * o.volume_remain, 0);
 
-  // Most valuable item — corp sell orders in scope, ranked by highest unit price
+  // Most valuable item — all sell orders in scope, ranked by highest unit price
   const byItem = {};
-  corpSell.forEach(o => { if (!byItem[o.type_id] || o.price > byItem[o.type_id]) byItem[o.type_id] = o.price; });
+  scopeAll.filter(o => !o.is_buy_order).forEach(o => { if (!byItem[o.type_id] || o.price > byItem[o.type_id]) byItem[o.type_id] = o.price; });
   const topItemEntry = Object.entries(byItem).sort((a, b) => b[1] - a[1])[0];
   const topItemName  = topItemEntry ? (typeNames[topItemEntry[0]] || `Type ${topItemEntry[0]}`) : '—';
   const topItemVal   = topItemEntry ? topItemEntry[1] : 0;
 
-  // Most valuable single order — corp orders in scope
-  const topOrder    = corpOrds.reduce((best, o) =>
+  // Most valuable single order — all orders in scope
+  const topOrder    = scopeAll.reduce((best, o) =>
     (o.price * o.volume_remain) > (best ? best.price * best.volume_remain : 0) ? o : best, null);
   const topOrderName = topOrder ? (typeNames[topOrder.type_id] || `Type ${topOrder.type_id}`) : '—';
   const topOrderVal  = topOrder ? topOrder.price * topOrder.volume_remain : 0;
@@ -993,11 +1263,11 @@ function renderStats() {
     : `<div class="stat-value" style="font-size:15px;color:var(--text2)">${charSlotsUsed} used</div>
        <div class="stat-sub" style="color:var(--orange)">Add esi-skills scope to see max</div>`;
 
-  // Undercut — corp orders in scope
-  const ucTotal   = corpOrds.length;
-  const ucCut     = corpOrds.filter(o => undercutStatus[o.order_id]?.status === 'undercut').length;
-  const ucBest    = corpOrds.filter(o => undercutStatus[o.order_id]?.status === 'best').length;
-  const ucPending = corpOrds.some(o => !undercutStatus[o.order_id] || undercutStatus[o.order_id].status === 'loading');
+  // Undercut — all orders in scope (personal + corp)
+  const ucTotal   = scopeAll.length;
+  const ucCut     = scopeAll.filter(o => undercutStatus[o.order_id]?.status === 'undercut').length;
+  const ucBest    = scopeAll.filter(o => undercutStatus[o.order_id]?.status === 'best').length;
+  const ucPending = scopeAll.some(o => !undercutStatus[o.order_id] || undercutStatus[o.order_id].status === 'loading');
   const ucPct     = ucTotal > 0 ? Math.round((ucCut / ucTotal) * 100) : 0;
   const ucHtmlStat = ucPending
     ? `<div class="stat-value" style="font-size:15px;color:var(--text2)"><span class="mini-spin"></span> checking…</div>`
@@ -1011,34 +1281,36 @@ function renderStats() {
        </div>`
     : '';
 
+  const showCorp = hasCorpRoles !== false;
   document.getElementById('stats-bar').innerHTML = `
-    <div class="stat-card">
+    <div class="stat-card" title="Order slots available to place new market orders. Based on your Trade skills.">
       <div class="stat-label">Personal Slots Free</div>
       ${slotsHtml}
     </div>
-    <div class="stat-card">
+    ${showCorp ? `
+    <div class="stat-card" title="Total active corp orders visible to your character.">
       <div class="stat-label">Corp Orders${l}</div>
       <div class="stat-value">${corpOrds.length}</div>
       <div class="stat-sub">${corpSell.length} sell · ${corpBuy.length} buy</div>
-    </div>
-    <div class="stat-card">
+    </div>` : ''}
+    <div class="stat-card" title="How many of your active orders have been undercut by a competitor. Red = undercut, green = all best price.">
       <div class="stat-label">Undercut${l}</div>
       ${ucHtmlStat}
     </div>
-    <div class="stat-card">
+    <div class="stat-card" title="Total ISK value of all active sell orders (price × remaining quantity).">
       <div class="stat-label">Sell Value${l}</div>
       <div class="stat-value gold">${fmtISK(sellVal)}</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" title="Total ISK committed to active buy orders (price × remaining quantity).">
       <div class="stat-label">Buy Volume${l}</div>
       <div class="stat-value blue">${fmtISK(buyVal)}</div>
     </div>
-    <div class="stat-card stat-wide">
+    <div class="stat-card stat-wide" title="Your sell order with the highest unit price across all your orders.">
       <div class="stat-label">Most Valuable Item${l}</div>
       <div class="stat-value gold" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(topItemName)}</div>
       <div class="stat-sub">${fmtISK(topItemVal)} / unit</div>
     </div>
-    <div class="stat-card stat-wide">
+    <div class="stat-card stat-wide" title="Your single order with the highest total value (price × remaining qty) across all your orders.">
       <div class="stat-label">Most Valuable Order${l}</div>
       <div class="stat-value gold" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(topOrderName)}</div>
       <div class="stat-sub">${fmtISK(topOrderVal)} · ${topOrderSub}</div>
@@ -1650,6 +1922,18 @@ function escHtml(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+// =============================================================
+// Help modal
+// =============================================================
+function toggleHelp() {
+  const el = document.getElementById('help-overlay');
+  el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+}
+function closeHelp(e) {
+  // Close when clicking the backdrop
+  if (e.target.id === 'help-overlay') toggleHelp();
 }
 
 // =============================================================
