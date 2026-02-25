@@ -763,6 +763,24 @@ let walletCorp         = null;   // array of {division, balance} or null
 let walletCorpDivision = parseInt(localStorage.getItem('eve_corp_wallet_div') || '1');
 let walletCorpNames    = {};     // division number → label (fetched if possible)
 
+function updateFilterButtonGroup(attr, activeValue, activeClass = '') {
+  document.querySelectorAll(`[data-${attr}]`).forEach(btn => {
+    btn.className = 'filter-btn';
+    if (btn.dataset[attr] !== activeValue) return;
+    btn.classList.add('f-active');
+    if (activeClass) btn.classList.add(activeClass);
+  });
+}
+
+function syncFilterButtonState() {
+  const typeClass = activeTypeFilt === 'sell' ? 'f-active-sell' : activeTypeFilt === 'buy' ? 'f-active-buy' : '';
+  const srcClass  = activeSrcFilt === 'corp' ? 'f-active-corp' : activeSrcFilt === 'personal' ? 'f-active-personal' : '';
+  const ucClass   = activeUcFilt === 'best' ? 'f-active-best' : activeUcFilt === 'undercut' ? 'f-active-undercut' : '';
+  updateFilterButtonGroup('tf', activeTypeFilt, typeClass);
+  updateFilterButtonGroup('sf', activeSrcFilt, srcClass);
+  updateFilterButtonGroup('uf', activeUcFilt, ucClass);
+}
+
 // =============================================================
 // Multi-account helpers
 // =============================================================
@@ -1056,9 +1074,7 @@ async function loadOrders() {
   activeLocFilt  = null;
   activeUcFilt   = 'all';
   renderLocChip();
-  document.querySelectorAll('[data-tf]').forEach(b => { b.className = 'filter-btn'; if (b.dataset.tf === 'all') b.classList.add('f-active'); });
-  document.querySelectorAll('[data-sf]').forEach(b => { b.className = 'filter-btn'; if (b.dataset.sf === 'all') b.classList.add('f-active'); });
-  document.querySelectorAll('[data-uf]').forEach(b => { b.className = 'filter-btn'; if (b.dataset.uf === 'all') b.classList.add('f-active'); });
+  syncFilterButtonState();
 
   try {
     const charId = getActiveCharId();
@@ -1567,16 +1583,19 @@ function sortBy(col) {
 // =============================================================
 function setTypeFilter(filter) {
   activeTypeFilt = filter;
+  syncFilterButtonState();
   renderOrders();
 }
 
 function setSrcFilter(filter) {
   activeSrcFilt = filter;
+  syncFilterButtonState();
   renderOrders();
 }
 
 function setUcFilter(filter) {
   activeUcFilt = filter;
+  syncFilterButtonState();
   renderOrders();
 }
 
