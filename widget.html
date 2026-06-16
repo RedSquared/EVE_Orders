@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>EVE Orders Widget</title>
+  <style>
+    :root {
+      --bg:     #070710;
+      --bg2:    #0e0e1c;
+      --bg3:    #141428;
+      --border: #232340;
+      --text:   #c0c8d8;
+      --dim:    #68707e;
+      --gold:   #c6a227;
+      --blue:   #4a9eed;
+      --green:  #3dba6e;
+      --red:    #d14040;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font: 12px/1.4 'Segoe UI', system-ui, sans-serif;
+      width: 320px;
+      padding: 6px;
+    }
+    button { cursor: pointer; font: inherit; }
+
+    /* ── Navigation bar ── */
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 5px;
+    }
+    .nav-arrow {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .nav-arrow:hover { background: var(--bg2); color: #fff; }
+    .nav-name {
+      flex: 1;
+      text-align: center;
+      font-weight: 600;
+      font-size: 11px;
+      color: var(--gold);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .nav-meta {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0;
+      font-size: 10px;
+      color: var(--dim);
+    }
+    .type-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 2px;
+    }
+    .sell-badge { background: #3a1010; color: var(--red); }
+    .buy-badge  { background: #0e2a0e; color: var(--green); }
+    .refresh-btn {
+      background: none;
+      border: none;
+      color: var(--dim);
+      font-size: 14px;
+      padding: 0 2px;
+      flex-shrink: 0;
+    }
+    .refresh-btn:hover { color: var(--text); }
+
+    /* ── Your price row ── */
+    .your-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      font-size: 11px;
+    }
+    .your-label { color: var(--dim); }
+    .your-price { font-weight: 600; font-family: monospace; }
+
+    /* ── Competitor price rows ── */
+    .section-lbl {
+      font-size: 9px;
+      text-transform: uppercase;
+      color: var(--dim);
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+    .price-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 3px 5px;
+      margin-bottom: 2px;
+      cursor: pointer;
+    }
+    .price-row.sel { border-color: var(--blue); background: #0d1b2e; }
+    .price-row:hover:not(.sel) { background: var(--bg3); }
+    .p-rank { font-size: 10px; color: var(--dim); min-width: 16px; }
+    .p-val  { flex: 1; font-size: 11px; font-weight: 600; font-family: monospace; }
+    .p-diff {
+      font-size: 10px;
+      font-family: monospace;
+      color: var(--dim);
+      min-width: 68px;
+      text-align: right;
+    }
+    .p-diff.bad  { color: var(--red); }
+    .p-diff.good { color: var(--green); }
+
+    /* ── Copy bar ── */
+    .copy-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 5px;
+      padding-top: 5px;
+      border-top: 1px solid var(--border);
+    }
+    .copy-info { flex: 1; }
+    .copy-lbl   { font-size: 9px; color: var(--dim); }
+    .copy-price {
+      font-size: 13px;
+      font-weight: 700;
+      font-family: monospace;
+      color: var(--gold);
+    }
+    .copy-btn {
+      background: var(--blue);
+      border: none;
+      color: #fff;
+      padding: 5px 14px;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .copy-btn:hover { background: #5aaefd; }
+    .copy-btn.ok { background: var(--green); }
+
+    /* ── Status messages ── */
+    .msg {
+      color: var(--dim);
+      text-align: center;
+      padding: 18px 8px;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .scope-note { font-size: 9px; color: var(--dim); }
+  </style>
+</head>
+<body>
+  <div id="app"><div class="msg">Loading…</div></div>
+  <script>
+    const SSO = 'https://login.eveonline.com';
+    const ESI = 'https://esi.evetech.net/latest';
+    // Same client ID as index.html — shared localStorage auth tokens work because
+    // both files are served from the same origin (GitHub Pages domain).
+    const HARDCODED_CID = 'a46cb3ebd7d843c7ac95f827a43f5e56';
+
+    let orders = [];
+    let idx    = 0;
+    let selIdx = 0;
+    let mkt    = null;   // { prices: number[], scope: 'station'|'region', loading, error }
+    let names  = {};
+    let mktCache = {};
+
+    const ticks = () => parseInt(localStorage.getItem('eve_uc_ticks') || '1');
+
+    // ─── Auth ────────────────────────────────────────────────────────────────
+
+    function accts() {
+      try { return JSON.parse(localStorage.getItem('eve_accounts') || '{}'); }
+      catch { return {}; }
+    }
+
+    function charId() { return localStorage.getItem('eve_active_char'); }
+
+    async function getToken() {
+      const a = accts()[charId()];
+      if (!a) throw new Error(
+        'Not logged in.\nOpen the main EVE Orders page, log in, then reload this widget.'
+      );
+      if (Date.now() < (a.exp || 0)) return a.at;
+
+      // Refresh
+      const cid = localStorage.getItem('eve_client_id') || HARDCODED_CID;
+      const r   = await fetch(`${SSO}/v2/oauth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type:    'refresh_token',
+          refresh_token: a.rt,
+          client_id:     cid,
+        }),
+      });
+      if (!r.ok) throw new Error('Token expired. Log in again from the main app.');
+      const t     = await r.json();
+      const fresh = accts();
+      if (fresh[charId()]) {
+        fresh[charId()] = {
+          ...fresh[charId()],
+          at:  t.access_token,
+          rt:  t.refresh_token || fresh[charId()].rt,
+          exp: Date.now() + (t.expires_in - 30) * 1000,
+        };
+        localStorage.setItem('eve_accounts', JSON.stringify(fresh));
+      }
+      return t.access_token;
+    }
+
+    async function esiGet(path) {
+      const tk = await getToken();
+      const r  = await fetch(`${ESI}${path}`, { headers: { Authorization: `Bearer ${tk}` } });
+      if (!r.ok) throw new Error(`ESI ${r.status} on ${path}`);
+      return r.json();
+    }
+
+    async function resolveNames(ids) {
+      if (!ids.length) return {};
+      const r = await fetch(`${ESI}/universe/names/`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(ids.slice(0, 999)),
+      });
+      const arr = r.ok ? await r.json() : [];
+      const out = {};
+      arr.forEach(x => { out[x.id] = x.name; });
+      return out;
+    }
+
+    // ─── Price math ──────────────────────────────────────────────────────────
+
+    // Same tick algorithm as index.html
+    function undercutPrice(price, isBuy) {
+      if (!price || price <= 0 || !isFinite(price)) return null;
+      const scale = Math.pow(10, Math.floor(Math.log10(price)) - 3);
+      const sig4  = Math.floor(price / scale + 1e-9);
+      const adj   = isBuy ? sig4 + ticks() : sig4 - ticks();
+      return Math.round(adj * scale * 100) / 100;
+    }
+
+    function fmt(v) {
+      return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function fmtDiff(diff) {
+      const abs  = Math.abs(diff);
+      const sign = diff < 0 ? '−' : '+';
+      if (abs >= 1e9) return sign + (abs / 1e9).toFixed(2) + 'B';
+      if (abs >= 1e6) return sign + (abs / 1e6).toFixed(2) + 'M';
+      if (abs >= 1e3) return sign + (abs / 1e3).toFixed(1) + 'K';
+      return sign + abs.toFixed(2);
+    }
+
+    // ─── Market fetch ────────────────────────────────────────────────────────
+
+    async function fetchMarket(regionId, typeId) {
+      const key = `${regionId}:${typeId}`;
+      if (mktCache[key]) return mktCache[key];
+      const url = `${ESI}/markets/${regionId}/orders/?type_id=${typeId}&page=`;
+      const r1  = await fetch(url + '1');
+      if (!r1.ok) throw new Error(`Market ${r1.status}`);
+      const pages = Math.min(parseInt(r1.headers.get('X-Pages') || '1'), 20);
+      const first = await r1.json();
+      const rest  = pages > 1
+        ? await Promise.all(
+            Array.from({ length: pages - 1 }, (_, i) =>
+              fetch(url + (i + 2)).then(r => r.ok ? r.json() : [])
+            )
+          )
+        : [];
+      mktCache[key] = [first, ...rest].flat();
+      return mktCache[key];
+    }
+
+    // Returns up to 3 competitor prices, station-scope first, region fallback.
+    function top3(order, all) {
+      const isBuy = order.is_buy_order;
+      const ourId = order.order_id;
+      const stPrices = all
+        .filter(m => m.is_buy_order === isBuy && m.order_id !== ourId && m.location_id === order.location_id)
+        .map(m => m.price);
+      if (stPrices.length) {
+        stPrices.sort(isBuy ? (a, b) => b - a : (a, b) => a - b);
+        return { prices: stPrices.slice(0, 3), scope: 'station' };
+      }
+      const rgPrices = all
+        .filter(m => m.is_buy_order === isBuy && m.order_id !== ourId)
+        .map(m => m.price);
+      rgPrices.sort(isBuy ? (a, b) => b - a : (a, b) => a - b);
+      return { prices: rgPrices.slice(0, 3), scope: 'region' };
+    }
+
+    // ─── Load ────────────────────────────────────────────────────────────────
+
+    async function load() {
+      show('<div class="msg">Loading…</div>');
+      try {
+        if (!charId()) {
+          show('<div class="msg">Open the main EVE Orders page and log in first,<br>then reload this widget.</div>');
+          return;
+        }
+        const raw = await esiGet(`/characters/${charId()}/orders/`);
+        orders    = raw.filter(o => !o.is_corporation);
+        if (!orders.length) { show('<div class="msg">No personal orders found.</div>'); return; }
+        names     = await resolveNames([...new Set(orders.map(o => o.type_id))]);
+        idx = 0; selIdx = 0;
+        await loadMkt();
+      } catch (e) {
+        show(`<div class="msg">${e.message.replace(/\n/g, '<br>')}</div>`);
+      }
+    }
+
+    async function loadMkt() {
+      mkt = { loading: true };
+      render();
+      const o = orders[idx];
+      try {
+        const all = await fetchMarket(o.region_id, o.type_id);
+        mkt = { ...top3(o, all), loading: false };
+      } catch (e) {
+        mkt = { prices: [], scope: 'station', loading: false, error: e.message };
+      }
+      selIdx = 0;
+      render();
+    }
+
+    // ─── Navigate ────────────────────────────────────────────────────────────
+
+    function nav(d) {
+      if (!orders.length) return;
+      idx = (idx + d + orders.length) % orders.length;
+      loadMkt();
+    }
+
+    // ─── Copy ────────────────────────────────────────────────────────────────
+
+    function doCopy() {
+      if (!mkt || mkt.loading || !mkt.prices?.length) return;
+      const price = mkt.prices[selIdx];
+      const val   = undercutPrice(price, orders[idx].is_buy_order);
+      if (val === null) return;
+      const text  = val.toFixed(2);
+      navigator.clipboard.writeText(text).catch(() => {
+        const t = Object.assign(document.createElement('textarea'), {
+          value: text, style: 'position:fixed;opacity:0',
+        });
+        document.body.appendChild(t); t.select();
+        document.execCommand('copy'); t.remove();
+      });
+      const btn = document.getElementById('cbtn');
+      if (btn) {
+        btn.textContent = '✓'; btn.classList.add('ok');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('ok'); }, 3000);
+      }
+    }
+
+    // ─── Render ──────────────────────────────────────────────────────────────
+
+    function show(html) { document.getElementById('app').innerHTML = html; }
+
+    function render() {
+      if (!orders.length) return;
+      const o     = orders[idx];
+      const name  = names[o.type_id] || `#${o.type_id}`;
+      const isBuy = o.is_buy_order;
+
+      // Competitor price rows
+      let priceBlock = '';
+      if (mkt?.loading) {
+        priceBlock = '<div class="msg" style="padding:8px 0">Fetching market…</div>';
+      } else if (mkt?.error) {
+        priceBlock = '<div class="msg" style="padding:8px 0">Market fetch failed</div>';
+      } else if (!mkt?.prices?.length) {
+        priceBlock = '<div class="msg" style="padding:8px 0">No competitors found</div>';
+      } else {
+        const scopeNote = mkt.scope === 'region'
+          ? ' <span class="scope-note">(region-wide, no station competition)</span>'
+          : '';
+        priceBlock = `<div class="section-lbl">Competitors${scopeNote}</div>`;
+        mkt.prices.forEach((p, i) => {
+          const diff = p - o.price;
+          // "bad" = this competitor is beating you: sell→they're cheaper; buy→they pay more
+          const bad  = isBuy ? diff > 0 : diff < 0;
+          priceBlock += `
+            <div class="price-row${selIdx === i ? ' sel' : ''}" onclick="selIdx=${i};render()">
+              <span class="p-rank">#${i + 1}</span>
+              <span class="p-val">${fmt(p)}</span>
+              <span class="p-diff ${bad ? 'bad' : 'good'}">${fmtDiff(diff)}</span>
+            </div>`;
+        });
+      }
+
+      // Copy bar (only when we have prices)
+      let copyBar = '';
+      if (mkt && !mkt.loading && mkt.prices?.length) {
+        const uc  = undercutPrice(mkt.prices[selIdx], isBuy);
+        const lbl = isBuy ? 'Outbid #' : 'Undercut #';
+        copyBar = `
+          <div class="copy-bar">
+            <div class="copy-info">
+              <div class="copy-lbl">${lbl}${selIdx + 1}:</div>
+              <div class="copy-price">${uc !== null ? fmt(uc) : '—'}</div>
+            </div>
+            <button class="copy-btn" id="cbtn" onclick="doCopy()">Copy</button>
+          </div>`;
+      }
+
+      show(`
+        <div class="nav">
+          <button class="nav-arrow" onclick="nav(-1)">←</button>
+          <span class="nav-name" title="${name}">${name}</span>
+          <span class="nav-meta">
+            <span>${idx + 1}/${orders.length}</span>
+            <span class="type-badge ${isBuy ? 'buy' : 'sell'}-badge">${isBuy ? 'BUY' : 'SELL'}</span>
+          </span>
+          <button class="refresh-btn" onclick="refreshAll()" title="Reload everything">⟳</button>
+          <button class="nav-arrow" onclick="nav(1)">→</button>
+        </div>
+        <div class="your-row">
+          <span class="your-label">Your price:</span>
+          <span class="your-price">${fmt(o.price)}</span>
+        </div>
+        ${priceBlock}
+        ${copyBar}
+      `);
+    }
+
+    function refreshAll() {
+      mktCache = {}; orders = []; names = {};
+      load();
+    }
+
+    load();
+  </script>
+</body>
+</html>
